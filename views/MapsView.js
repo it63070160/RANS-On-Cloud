@@ -1,43 +1,21 @@
-import React, { useCallback, useRef } from 'react';
-import { StyleSheet, View, Modal, Pressable, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import { StyleSheet, View, Modal, TouchableOpacity } from 'react-native';
 import { Ionicons, AntDesign, Entypo } from '@expo/vector-icons'; // Icon
-import axios, { all } from 'axios'; // ดึง API
+import axios from 'axios'; // ดึง API
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as TaskManager from "expo-task-manager" // จัดการ task ตอน tracking
 import * as Location from 'expo-location'; // track user location
 import { getPreciseDistance } from 'geolib'; // Calculate Distrance between 2 locations
 import db from '../database/firebaseDB'; // Database
-import { collection, query, where, getDoc, orderBy, onSnapshot, updateDoc, doc } from "firebase/firestore"; // firebase
+import { collection, getDoc, onSnapshot, updateDoc, doc } from "firebase/firestore"; // firebase
 import { Cache } from 'react-native-cache'; // cache
 import AsyncStorage from '@react-native-async-storage/async-storage'; // cache storage
-import TimeNotifications from '../components/TimeNotifications'; // count time
 import AddRisk from './AddRisk'; // Add Risk View
 import { useFocusEffect } from "@react-navigation/native"; // check user is focus or not
 import { encrypt } from '../components/Encryption'; // encrypt device id
 import * as Device from 'expo-device'; // get device id
 import * as Application from 'expo-application'; // get device id
 import * as Notifications from 'expo-notifications'; // Notifications
-import { remove } from 'lodash';
-
-// *********************** Tracking User Location (Task Manager) ***********************
-const LOCATION_TASK_NAME = "LOCATION_TASK_NAME"
-let foregroundSubscription = null
-
-// Define the background task for location tracking
-TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
-  if (error) {
-    console.error(error)
-    return
-  }
-  if (data) {
-    // Extract location coordinates from data
-    const { locations } = data
-    const location = locations[0]
-    if (location) {
-      console.log("Location in background", location.coords)
-    }
-  }
-})
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -47,39 +25,10 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Notifications.setNotificationCategoryAsync('Alert', [
-//   {
-//     buttonTitle: "Like",
-//     identifier: "LikeBtn",
-//   },
-//   {
-//     buttonTitle: "Dislike",
-//     identifier: "DislikeBtn",
-//   },
-//   {
-//     buttonTitle: "Dismiss",
-//     identifier: "DismissBtn",
-//     isDestructive: true,
-//     isAuthenticationRequired: false,
-//   }
-// ])
-
-// Notifications.setNotificationCategoryAsync('CantDo', [
-//   {
-//     buttonTitle: "Dismiss",
-//     identifier: "DismissBtn",
-//     isDestructive: true,
-//     isAuthenticationRequired: false,
-//   }
-// ])
-
 function CheckFocusScreen(props) {
   useFocusEffect(
     useCallback(() => {
       props.lightMode();
-      return () => {
-        props.stopForegroundUpdate();
-      };
     }, [])
   );
   return <View />;
@@ -90,20 +39,13 @@ export default class MapsView extends React.Component {
     super();
     this.state = {
       data: [],
-      fencing: [
-        {
-          identifier: 'Default',
-          latitude: 37.785834,
-          longitude: -122.406417,
-          radius: 10,
-          notifyOnEnter: false,
-          notifyOnExit: false,
-        }
-      ],
+      fencing: [],
+      fencingStartCoords: {},
       listRiskArea: [],
       alreadyNotify: [],
       notifyList: [],
       notifyCount: 0,
+      delayTime: 0,
       position: {latitude: 13.736717, longitude: 100.523186},
       userCoords: {},
       deviceId: "",
@@ -116,10 +58,6 @@ export default class MapsView extends React.Component {
       myNotification: false,
       expoPushToken: '',
     }
-
-    this.autoCloseModal = this.autoCloseModal.bind(this)
-    this.closeAddModal = this.closeAddModal.bind(this)
-    this.stopForegroundUpdate = this.stopForegroundUpdate.bind(this)
     this.handleLightMode = this.handleLightMode.bind(this)
     this.CheckLightMode = this.CheckLightMode.bind(this)
   }
@@ -135,6 +73,25 @@ export default class MapsView extends React.Component {
       backend: AsyncStorage
     });
 
+    // Define the background task for location tracking
+    TaskManager.defineTask("LOCATION_BACKGROUND", async ({ data, error }) => {
+      if (error) {
+        console.error(error)
+        return
+      }
+      if (data) {
+        // Extract location coordinates from data
+        const { locations } = data
+        const location = locations[0]
+        if (location) {
+          this.setState({
+            userCoords: location.coords
+          })
+          this.forceUpdate()
+        }
+      }
+    })
+
     // Geofencing Task
     TaskManager.defineTask("LOCATION_GEOFENCE", ({ data: { eventType, region }, error }) => {
       if (error) {
@@ -142,13 +99,11 @@ export default class MapsView extends React.Component {
         return;
       }
       if (eventType === Location.GeofencingEventType.Enter) {
-        
         if(this.state.alreadyNotify.indexOf(region.identifier) < 0){
           console.log("You've entered region:", region.identifier);
           const location = this.state.data.filter((value)=>value.key==region.identifier)[0]
           const distrance = getPreciseDistance(this.state.userCoords, {latitude: region.latitude, longitude: region.longitude})
-          this.notify(location.รายละเอียด, distrance)
-          this.pushToNotificationPage(region.identifier)
+          this.notify(location.รายละเอียด, distrance, region.identifier)
           this.setState(prevState => {
             const newMyArray = [...prevState.alreadyNotify, region.identifier];
             return { alreadyNotify: newMyArray };
@@ -169,7 +124,8 @@ export default class MapsView extends React.Component {
             this.setState(prevState => {
               const newArray = [...prevState.alreadyNotify];
               newArray.splice(removeID, 1);
-              return { alreadyNotify: newArray };
+              const newCount = prevState.notifyCount - 1;
+              return { alreadyNotify: newArray, notifyCount: newCount};
             });
           }
         }
@@ -372,32 +328,82 @@ export default class MapsView extends React.Component {
     this.CheckLightMode();
   }
 
-  async notify(detail, distrance){
+  async notify(detail, distrance, riskID){
     const noti = await Notifications.scheduleNotificationAsync({
       content: {
         title: '❗ RANS : พบจุดเสี่ยงในระยะ ' + distrance + ' เมตร',
-        body: "จุดเสี่ยง " + detail + " อยู่ในระยะ " + distrance + " เมตรจากคุณ"
+        body: "จุดเสี่ยง " + detail + " อยู่ในระยะ " + distrance + " เมตรจากคุณ",
+        autoDismiss: true
       },
       trigger: null,
-      groupId: 'alert',
     });
-    // setTimeout(async ()=>{
-    //   await Notifications.dismissNotificationAsync(noti)
-    //   console.log(`Notification ${noti} cancelled`);
-    // }, 5000)
+    this.setState(prevState => {
+      const newCount = prevState.notifyCount + 1;
+      return { notifyCount: newCount };
+    });
+    setTimeout(async ()=>{
+      await Notifications.dismissNotificationAsync(noti)
+      console.log(`Notification ${noti} cancelled`);
+      this.pushToNotificationPage(riskID)
+    }, (this.state.delayTime+(8000/this.state.notifyCount)))
+    this.forceUpdate()
   }
 
   async componentDidUpdate(prevProps, prevState){
     if(this.arraysEqual(prevState.fencing, this.state.fencing) == false){
+      this.setState({
+        fencingStartCoords: this.state.userCoords
+      });
       await Location.startGeofencingAsync("LOCATION_GEOFENCE", this.state.fencing)
         .then(() => console.log('Geofencing started'))
         .catch(error => console.log(error));
+    }
+    if(getPreciseDistance(this.state.fencingStartCoords, this.state.userCoords) >= 150){
+      console.log("Far away 150m Reload fencing")
+      this.setState({
+        fencingStartCoords: this.state.userCoords
+      });
+      var fencing_data = []
+      this.state.data.forEach((res)=>{
+        var pdis = getPreciseDistance(
+          this.state.userCoords,
+          {latitude: Number(res.พิกัด.slice(0, res.พิกัด.indexOf(","))), longitude: res.พิกัด.indexOf(" ")>=0?Number(res.พิกัด.slice(res.พิกัด.indexOf(" "))):Number(res.พิกัด.slice(res.พิกัด.indexOf(",")+1))}
+        );
+        if(pdis<=150){
+          fencing_data.push({
+            identifier: res.key,
+            latitude: Number(res.พิกัด.slice(0, res.พิกัด.indexOf(","))),
+            longitude: res.พิกัด.indexOf(" ")>=0?Number(res.พิกัด.slice(res.พิกัด.indexOf(" "))):Number(res.พิกัด.slice(res.พิกัด.indexOf(",")+1)),
+            radius: res.like>=50?150:res.like>=25?100:50,
+            notifyOnEnter: true,
+            notifyOnExit: true
+          })
+        }
+      })
+      if(fencing_data.length != 0){
+        this.setState({
+          fencing: fencing_data
+        });
+      }else{
+        this.setState({
+          fencing: [
+            {
+              identifier: 'default',
+              latitude: 37.785834,
+              longitude: -122.406417,
+              radius: 10,
+              notifyOnEnter: true,
+              notifyOnExit: false,
+            }
+          ]
+        })
+      }
+      this.forceUpdate()
     }
   }
 
   componentWillUnmount(){
     this.unsub();
-    this.stopForegroundUpdate();
     this.setState({
       AlertMe: false
     })
@@ -406,20 +412,16 @@ export default class MapsView extends React.Component {
       .catch(error => console.log(error));
   }
 
-  async pushToNotificationPage(notifyID) {
-    let ignoreList = []
-    let ignoreCache = await this.cache.get("ignoreID")==undefined?[]:await this.cache.get("ignoreID");
+  async pushToNotificationPage(riskID) {
     let likeCache = await this.cache.get('like')==undefined?[]:await this.cache.get('like');
     let disLikeCache = await this.cache.get('dislike')==undefined?[]:await this.cache.get('dislike');
-    console.log("first", ignoreCache)
-    if(ignoreCache.length>0){
-      ignoreList = ignoreCache
+    const storage = await AsyncStorage.getItem("ignoreList")==null?"[]":await AsyncStorage.getItem("ignoreList");
+    var ignoreList = JSON.parse(storage)
+    if(ignoreList.length>0){
       let newlist = []
-      // this.state.fencing.map((item)=>{
-        if(ignoreCache.indexOf(notifyID)<0 && (likeCache.indexOf(notifyID)<0 && disLikeCache.indexOf(notifyID)<0)){
-          newlist.unshift(notifyID)
+        if(ignoreList.indexOf(riskID)<0 && (likeCache.indexOf(riskID)<0 && disLikeCache.indexOf(riskID)<0)){
+          newlist.unshift(riskID)
         }
-      // })
       if(newlist.length>1){
         newlist.map((item)=>{
           ignoreList.unshift(item)
@@ -430,14 +432,12 @@ export default class MapsView extends React.Component {
         })
       }
     }else{
-      // this.state.fencing.map((item)=>{
-        if(likeCache.indexOf(notifyID)<0 && disLikeCache.indexOf(notifyID)<0){
-          ignoreList.push(notifyID)
+        if(likeCache.indexOf(riskID)<0 && disLikeCache.indexOf(riskID)<0){
+          ignoreList.push(riskID)
         }
-      // })
     }
+    await AsyncStorage.setItem("ignoreList", JSON.stringify(ignoreList))
     await this.cache.set('ignoreID', ignoreList)
-    console.log("end", ignoreList)
   }
 
   subscription = () => {
@@ -548,24 +548,36 @@ export default class MapsView extends React.Component {
         this.state.userCoords,
         {latitude: Number(พิกัด.slice(0, พิกัด.indexOf(","))), longitude: พิกัด.indexOf(" ")>=0?Number(พิกัด.slice(พิกัด.indexOf(" "))):Number(พิกัด.slice(พิกัด.indexOf(",")+1))}
       );
-      if(pdis<=300){
-        // if(this.state.fencing.filter((value)=>value.identifier==res.id).length <= 0){
-          fencing_data.push({
-            identifier: res.id,
-            latitude: Number(พิกัด.slice(0, พิกัด.indexOf(","))),
-            longitude: พิกัด.indexOf(" ")>=0?Number(พิกัด.slice(พิกัด.indexOf(" "))):Number(พิกัด.slice(พิกัด.indexOf(",")+1)),
-            radius: like>=50?300:like>=25?150:50,
-            notifyOnEnter: true,
-            notifyOnExit: true
-          })
-        // }
+      if(pdis<=150){
+        fencing_data.push({
+          identifier: res.id,
+          latitude: Number(พิกัด.slice(0, พิกัด.indexOf(","))),
+          longitude: พิกัด.indexOf(" ")>=0?Number(พิกัด.slice(พิกัด.indexOf(" "))):Number(พิกัด.slice(พิกัด.indexOf(",")+1)),
+          radius: like>=50?150:like>=25?100:50,
+          notifyOnEnter: true,
+          notifyOnExit: true
+        })
       }
     });
-    if(fencing_data != []){
+    if(fencing_data.length != 0){
       this.setState({
         data: all_data,
         fencing: fencing_data
       });
+    }else{
+      this.setState({
+        data: all_data,
+        fencing: [
+          {
+            identifier: 'default',
+            latitude: 37.785834,
+            longitude: -122.406417,
+            radius: 10,
+            notifyOnEnter: true,
+            notifyOnExit: false,
+          }
+        ]
+      })
     }
     this.forceUpdate()
   };
@@ -593,21 +605,19 @@ export default class MapsView extends React.Component {
     }
   
     // Make sure the task is defined otherwise do not start tracking
-    const isTaskDefined = await TaskManager.isTaskDefined(LOCATION_TASK_NAME)
+    const isTaskDefined = TaskManager.isTaskDefined("LOCATION_BACKGROUND")
     if (!isTaskDefined) {
       console.log("Task is not defined")
       return
     }
   
     // Don't track if it is already running in background
-    const hasStarted = await Location.hasStartedLocationUpdatesAsync(
-      LOCATION_TASK_NAME
-    )
+    const hasStarted = await Location.hasStartedLocationUpdatesAsync("LOCATION_BACKGROUND")
     if (hasStarted) {
       console.log("Already started")
       return
     }
-    await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+    await Location.startLocationUpdatesAsync("LOCATION_BACKGROUND", {
       // For better logs, we set the accuracy to the most sensitive option
       accuracy: Location.Accuracy.BestForNavigation,
       // Make sure to enable this notification if you want to consistently track in the background
@@ -632,9 +642,6 @@ export default class MapsView extends React.Component {
   }
   
   async requestPermissions () {
-    // const foreground = await Location.requestForegroundPermissionsAsync()
-    // if (foreground.granted) await Location.requestBackgroundPermissionsAsync()
-    // for geofencing หรือ การทำระยะล้อมจุดที่กำหนดและสามารถแจ้งเตือนขณะ user เข้าในระยะ
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status == "granted") {
       await Location.requestBackgroundPermissionsAsync();
@@ -644,6 +651,7 @@ export default class MapsView extends React.Component {
       position: location.coords,
       userCoords: location.coords
     })
+    this.startBackgroundUpdate()
   }
   
   async trackUser() {
@@ -772,41 +780,6 @@ export default class MapsView extends React.Component {
     this.forceUpdate();
   };
 
-  // Start location tracking in foreground
-  async startForegroundUpdate() {
-    // Check if foreground permission is granted
-    const { granted } = await Location.getForegroundPermissionsAsync()
-    if (!granted) {
-      console.log("location tracking denied")
-      return
-    }
-
-    // Make sure that foreground location tracking is not running
-    foregroundSubscription?.remove()
-
-    // Start watching position in real-time
-    foregroundSubscription = await Location.watchPositionAsync(
-      {
-        // For better logs, we set the accuracy to the most sensitive option
-        accuracy: Location.Accuracy.BestForNavigation,
-        // distanceInterval: 5,
-        enableHighAccuracy:true,
-        timeInterval: 20000
-      },
-      location => {
-        this.calculatePreciseDistance(location.coords, this.state.data)
-      }
-    )
-  }
-
-  // Stop location tracking in foreground
-  async stopForegroundUpdate() {
-    foregroundSubscription?.remove()
-    this.setState({
-      AlertMe:false
-    })
-  }
-
   // ตรวจโหมดความสว่างของผู้ใช้จาก Cache ตอนเปิดโปรแกรม
   async CheckLightMode(){
     let lightMode = await this.cache.get("lightMode")
@@ -868,69 +841,6 @@ export default class MapsView extends React.Component {
     )
   }
 
-  // Component Function การแจ้งเตือนเมื่อมีจุดเสี่ยงใกล้ผู้ใช้
-  RiskNotification=()=>{
-    const listArea = []
-    let countItem = 0
-    this.state.listRiskArea.sort((a,b) => (a.distrance > b.distrance) ? 1 : ((b.distrance > a.distrance) ? -1 : 0))
-    this.state.listRiskArea.map((item, index)=>{
-      if(item.distrance<=250){
-        countItem++
-        listArea.push(
-          <View key={index}>
-            <Text style={styles.modalText}>
-              <Text style={{color:item.like >= 50 ? "red" : item.like >= 25 ? "orange" : "green"}}>{item.detail} </Text>
-              <Text>[{item.distrance} เมตร]</Text>
-            </Text>
-          </View>
-        )
-      }
-    })
-    if(countItem==0){
-      this.state.listRiskArea.map((item, index)=>{
-        listArea.push(
-          <View key={index}>
-            <Text style={styles.modalText}>
-              <Text style={{color:item.like >= 50 ? "red" : item.like >= 25 ? "orange" : "green"}}>{item.detail} </Text>
-              <Text>[{item.distrance} เมตร]</Text>
-            </Text>
-          </View>
-        )
-      })
-    }
-    if(listArea.length!=this.state.listRiskArea.length){
-      listArea.push(
-        <Text key={countItem} style={{fontWeight:'bold'}}>... and {this.state.listRiskArea.length-countItem} more</Text>
-      )
-    }
-    return (
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={this.state.modalVisible}
-        onRequestClose={() => {
-          this.closeModal();
-        }}>
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTextHeader}>พบจุดเสี่ยงใกล้ท่าน ({this.state.listRiskArea.length} จุด)</Text>
-            {listArea}
-            <View style={{flexDirection: 'row'}}>
-              <Pressable
-                style={[styles.button, styles.buttonClose]}
-                onPress={() => this.closeModal()}>
-                <Text style={styles.textStyle}>
-                  <AntDesign name="close" size={20} color="black" /> (
-                  <TimeNotifications autoCloseModal={this.autoCloseModal}/> 
-                )</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
   render(){
     return (
       <View style={styles.container}>
@@ -946,17 +856,13 @@ export default class MapsView extends React.Component {
             </TouchableOpacity> : null : null}
          </View>
          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.bottomButton} onPress={() => { this.stopForegroundUpdate(); this.setState({ addPress: true }); } }>
+            <TouchableOpacity style={styles.bottomButton} onPress={() => { this.setState({ addPress: true }); } }>
               <Ionicons name="add" size={24} color="black" />
             </TouchableOpacity>
-            {/* <TouchableOpacity style={[styles.bottomButton, { backgroundColor: this.state.AlertMe ? "#F36C6C" : "#6BF38B" }]} onPress={() => { this.state.AlertMe ? this.stopForegroundUpdate() : this.startForegroundUpdate(); this.setState({ AlertMe: !this.state.AlertMe, follow: !this.state.follow }); } }>
-              <Text style={{ fontSize: 20 }}>{this.state.AlertMe ? 'Stop' : 'Start'}</Text>
-            </TouchableOpacity> */}
           </View>
         </>:null}
-        <CheckFocusScreen lightMode={this.CheckLightMode} stopForegroundUpdate={this.stopForegroundUpdate}/>
+        <CheckFocusScreen lightMode={this.CheckLightMode}/>
         <this.AddNewRisk/>
-        <this.RiskNotification />
         <MapView style={styles.map}
           region={{ latitude: this.state.position.latitude, longitude: this.state.position.longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 }}
           provider={PROVIDER_GOOGLE}
@@ -1012,7 +918,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 40,
     borderWidth: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FF9933',
   },
   topRightContainer: {
     position: 'absolute',

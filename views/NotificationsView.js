@@ -71,6 +71,7 @@ export default class NotificationsView extends React.Component{
 
   async removeAll () {
     await this.cache.remove('ignoreID')
+    await AsyncStorage.removeItem('ignoreList')
   }
 
   async GetData () {
