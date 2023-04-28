@@ -35,10 +35,13 @@ function CheckFocusScreen(props) {
 }
 
 export default class MapsView extends React.Component {
+  intervalId = null;
+  firstTimeMount = true;
   constructor(){
     super();
     this.state = {
       data: [],
+      apiData: [],
       fencing: [],
       fencingStartCoords: {},
       listRiskArea: [],
@@ -58,8 +61,10 @@ export default class MapsView extends React.Component {
       myNotification: false,
       expoPushToken: '',
     }
+    this.closeAddModal = this.closeAddModal.bind(this)
     this.handleLightMode = this.handleLightMode.bind(this)
     this.CheckLightMode = this.CheckLightMode.bind(this)
+    this.getData = this.getData.bind(this)
   }
   
   componentDidMount(){
@@ -103,7 +108,7 @@ export default class MapsView extends React.Component {
           console.log("You've entered region:", region.identifier);
           const location = this.state.data.filter((value)=>value.key==region.identifier)[0]
           const distrance = getPreciseDistance(this.state.userCoords, {latitude: region.latitude, longitude: region.longitude})
-          this.notify(location.รายละเอียด, distrance, region.identifier)
+          this.notify(location.detail, distrance, region.identifier)
           this.setState(prevState => {
             const newMyArray = [...prevState.alreadyNotify, region.identifier];
             return { alreadyNotify: newMyArray };
@@ -132,60 +137,6 @@ export default class MapsView extends React.Component {
       }
     });
 
-    // // Geofencing Task
-    // TaskManager.defineTask("LOCATION_GEOFENCE", async ({ data: { eventType, region }, error }) => {
-    //   if (error) {
-    //     // check `error.message` for more details.
-    //     return;
-    //   }
-    //   if (eventType === Location.GeofencingEventType.Enter) {
-    //     const notify = await AsyncStorage.getItem("notifyList")==null?"[]":await AsyncStorage.getItem("notifyList");
-    //     var notifyList = JSON.parse(notify)
-    //     console.log("firstCheck: ", notifyList)
-    //     console.log("You've entered region:", region.identifier);
-    //     const location = this.state.data.filter((value)=>value.key==region.identifier)[0]
-    //     if(notifyList.indexOf(region.identifier) < 0){
-    //       notifyList.push(region.identifier)
-    //       await AsyncStorage.setItem("notifyList", JSON.stringify(notifyList))
-    //       console.log("secondCheck: ", await AsyncStorage.getItem("notifyList"))
-    //       let likeCache = await this.cache.get('like')==undefined?[]:await this.cache.get('like');
-    //       let disLikeCache = await this.cache.get('dislike')==undefined?[]:await this.cache.get('dislike');
-    //       if(likeCache.indexOf(region.identifier)>=0 || disLikeCache.indexOf(region.identifier)>=0){
-    //         Notifications.setNotificationCategoryAsync('Alert', [
-    //           {
-    //             buttonTitle: "Dismiss",
-    //             identifier: "DismissBtn",
-    //           }
-    //         ])
-    //       }
-    //       Notifications.scheduleNotificationAsync({
-    //         content: {
-    //           categoryIdentifier: "Alert",
-    //           title: '❗ RANS : โปรดระวัง ! คุณเข้าใกล้จุดเสี่ยง',
-    //           body: "จุดเสี่ยง "+location.รายละเอียด+" อยู่ในระยะ "+getPreciseDistance(this.state.userCoords, {latitude: region.latitude, longitude: region.longitude})+" เมตรจากคุณ",
-    //           data: { data: location },
-    //         },
-    //         trigger: null,
-    //       });
-    //     }else{
-    //       return false;
-    //     }
-    //   } else if (eventType === Location.GeofencingEventType.Exit) {
-    //     // console.log("You've left region:", region);
-    //     // if(notifyList.indexOf(region.identifier) >= 0){
-    //     //   var removeID
-    //     //   notifyList.filter((value, index)=>{
-    //     //     if(value==region.identifier){
-    //     //         removeID = index
-    //     //     }
-    //     //   })
-    //     //   if(removeID >= 0){
-    //     //     notifyList.splice(removeID, 1)
-    //     //     await AsyncStorage.setItem("notifyList", JSON.stringify(notifyList))
-    //     //   }
-    //     // }
-    //   }
-    // });
     this.subscription();
     this.darkMapStyle = [
       {
@@ -322,8 +273,10 @@ export default class MapsView extends React.Component {
       }
     ]
     this.defaultMapStyle = []
-    this.unsub = onSnapshot(collection(db, "rans-database"), this.getCollection);
+    // this.unsub = onSnapshot(collection(db, "rans-database"), this.getCollection);
     this.requestPermissions();
+    this.GetPosition();
+    this.getData();
     this.GetDeviceID();
     this.CheckLightMode();
   }
@@ -367,13 +320,13 @@ export default class MapsView extends React.Component {
       this.state.data.forEach((res)=>{
         var pdis = getPreciseDistance(
           this.state.userCoords,
-          {latitude: Number(res.พิกัด.slice(0, res.พิกัด.indexOf(","))), longitude: res.พิกัด.indexOf(" ")>=0?Number(res.พิกัด.slice(res.พิกัด.indexOf(" "))):Number(res.พิกัด.slice(res.พิกัด.indexOf(",")+1))}
+          {latitude: Number(res.coords.slice(0, res.coords.indexOf(","))), longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1))}
         );
         if(pdis<=150){
           fencing_data.push({
             identifier: res.key,
-            latitude: Number(res.พิกัด.slice(0, res.พิกัด.indexOf(","))),
-            longitude: res.พิกัด.indexOf(" ")>=0?Number(res.พิกัด.slice(res.พิกัด.indexOf(" "))):Number(res.พิกัด.slice(res.พิกัด.indexOf(",")+1)),
+            latitude: Number(res.coords.slice(0, res.coords.indexOf(","))),
+            longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1)),
             radius: res.like>=50?150:res.like>=25?100:50,
             notifyOnEnter: true,
             notifyOnExit: true
@@ -403,7 +356,8 @@ export default class MapsView extends React.Component {
   }
 
   componentWillUnmount(){
-    this.unsub();
+    // this.unsub();
+    clearInterval(this.intervalId);
     this.setState({
       AlertMe: false
     })
@@ -539,20 +493,20 @@ export default class MapsView extends React.Component {
     const all_data = [];
     const fencing_data = [];
     querySnapshot.forEach((res) => {
-      const { _id, dislike, like, owner, พิกัด, รายละเอียด, สำนักงานเขต } = res.data();
+      const { _id, dislike, like, owner, coords, detail, area } = res.data();
       all_data.push({
         key: res.id,
-        _id, dislike, like, owner, พิกัด, รายละเอียด, สำนักงานเขต
+        _id, dislike, like, owner, coords, detail, area
       });
       var pdis = getPreciseDistance(
         this.state.userCoords,
-        {latitude: Number(พิกัด.slice(0, พิกัด.indexOf(","))), longitude: พิกัด.indexOf(" ")>=0?Number(พิกัด.slice(พิกัด.indexOf(" "))):Number(พิกัด.slice(พิกัด.indexOf(",")+1))}
+        {latitude: Number(coords.slice(0, coords.indexOf(","))), longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1))}
       );
       if(pdis<=150){
         fencing_data.push({
           identifier: res.id,
-          latitude: Number(พิกัด.slice(0, พิกัด.indexOf(","))),
-          longitude: พิกัด.indexOf(" ")>=0?Number(พิกัด.slice(พิกัด.indexOf(" "))):Number(พิกัด.slice(พิกัด.indexOf(",")+1)),
+          latitude: Number(coords.slice(0, coords.indexOf(","))),
+          longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1)),
           radius: like>=50?150:like>=25?100:50,
           notifyOnEnter: true,
           notifyOnExit: true
@@ -661,22 +615,101 @@ export default class MapsView extends React.Component {
     })
   }
 
+  async insertDataFromAPI() {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    try{
+      this.state.data.forEach(async (res)=>{
+        // console.log(res)
+        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/data', res, {headers})
+          .then(response => {
+            console.log('Data items successfully inserted:', response.data);
+          })
+          .catch(error => {
+            console.error("Put Error:", error)
+          })
+      })
+    }catch(err){
+      console.error(err)
+    }
+  }
+
+  async getData() {
+    try{
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/datas')
+        .then(response=>{
+          this.setState({
+            data: response.data.datas
+          })
+          if(this.intervalId == null){
+            this.intervalId = setInterval(() => {
+              // Code to be executed at the interval
+              console.log("Data Refresh")
+              this.getData()
+            }, 60000);
+          }
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+    }catch(err){
+      console.error(err)
+    }
+  }
+
+  async getDataFromAPI() {
+    try{
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/datas')
+        .then(response=>{
+          this.setState({
+            data: response.data.datas
+          })
+          this.setState(prevState => {
+            var countID = this.state.data.length>0?this.state.data.pop().riskID-1:0;
+            const newData = this.state.apiData.map(res => {
+              countID++;
+              return {
+                riskID: countID,
+                dislike: 0,
+                like: 0,
+                owner: '-',
+                coords: res.พิกัด,
+                detail: res.รายละเอียด,
+                area: res.สำนักงานเขต
+              };
+            });
+            const newMyArray = [...prevState.data, ...newData];
+            return { data: newMyArray };
+          });
+          // this.insertDataFromAPI()
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+    }catch(err){
+      console.error(err)
+    }
+  }
+
   async GetPosition() {
     try{
-    //       // JSON หาก API ล่ม
-    //       // const customData = require('../assets/RiskArea.json')
-    //       // setData(customData.result.records)
+      // JSON หาก API ล่ม
+      const customData = require('../assets/RiskArea2.json')
+      this.setState({
+        apiData: customData.result.records
+      })
           
       // API
-      await axios.get('https://data.bangkok.go.th/api/3/action/datastore_search?&resource_id=6cc7a43f-52b3-4381-9a8f-2b8a35c3174a')
-              .then(response=>{
-                this.setState({
-                  data: response.data.result.records
-                })
-              })
-              .catch(error=>{
-                console.error(error)
-              })
+      // await axios.get('https://data.bangkok.go.th/api/3/action/datastore_search?&resource_id=6cc7a43f-52b3-4381-9a8f-2b8a35c3174a')
+      //         .then(response=>{
+      //           this.setState({
+      //             apiData: response.data.result.records
+      //           })
+      //         })
+      //         .catch(error=>{
+      //           console.error(error)
+      //         })
     }catch(err){
       console.error(err)
     }
@@ -709,76 +742,6 @@ export default class MapsView extends React.Component {
       addPress: false
     })
   }
-
-  // เมื่อระบบปิด Notification เอง
-  async autoCloseModal() {
-    this.setState({
-      modalVisible: false
-    })
-    let ignoreList = []
-    let ignoreCache = await this.cache.get("ignoreID")
-    let likeCache = await this.cache.get('like');
-    let disLikeCache = await this.cache.get('dislike');
-    if(ignoreCache==undefined){
-      ignoreCache = []
-    }
-    if(likeCache==undefined){
-      likeCache = []
-    }
-    if(disLikeCache==undefined){
-      disLikeCache = []
-    }
-    if(ignoreCache.length>0){
-      ignoreList = ignoreCache
-      let newlist = []
-      this.state.listRiskArea.map((item)=>{
-        if(ignoreCache.indexOf(item.key)<0 && (likeCache.indexOf(item.key)<0 && disLikeCache.indexOf(item.key)<0)){
-          newlist.unshift(item.key)
-        }
-      })
-      if(newlist.length>1){
-        newlist.map((item)=>{
-          ignoreList.unshift(item)
-        })
-      }else{
-        newlist.map((item)=>{
-          ignoreList.unshift(item)
-        })
-      }
-    }else{
-      this.state.listRiskArea.map((item)=>{
-        if(likeCache.indexOf(item.key)<0 && disLikeCache.indexOf(item.key)<0){
-          ignoreList.push(item.key)
-        }
-      })
-    }
-    await this.cache.set('ignoreID', ignoreList)
-    this.forceUpdate();
-  }
-
-  // คำนวณระยะห่างระหว่างผู้ใช้กับจุดเสี่ยง
-  calculatePreciseDistance(position, data) {
-    var RiskArea = []
-    data.map((item)=>{
-      var pdis = getPreciseDistance(
-        position,
-        item.พิกัด.indexOf(" ")>=0?{latitude: Number(item.พิกัด.slice(0, item.พิกัด.indexOf(","))), longitude: Number(item.พิกัด.slice(item.พิกัด.indexOf(" ")))}:{latitude: Number(item.พิกัด.slice(0, item.พิกัด.indexOf(","))), longitude: Number(item.พิกัด.slice(item.พิกัด.indexOf(",")+1))}
-      );
-      if(pdis<=300){
-        RiskArea.push({detail: item.รายละเอียด, distrance: pdis, id: item._id, key:item.key, like:item.like, dislike:item.dislike})
-      }
-    })
-    
-    if(RiskArea.length>0){
-      this.setState({
-        modalVisible:true
-      })
-    }
-    this.setState({
-      listRiskArea: RiskArea
-    })
-    this.forceUpdate();
-  };
 
   // ตรวจโหมดความสว่างของผู้ใช้จาก Cache ตอนเปิดโปรแกรม
   async CheckLightMode(){
@@ -834,7 +797,7 @@ export default class MapsView extends React.Component {
             <TouchableOpacity style={styles.modalCloseButton} onPress={()=>{this.setState({addPress:false})}}>
               <AntDesign name="close" size={24} color="black" />
             </TouchableOpacity>
-            <AddRisk closeAddModal={this.closeAddModal}/>
+            <AddRisk closeAddModal={this.closeAddModal} refreshData={this.getData}/>
           </View>
         </View>
       </Modal>
@@ -875,7 +838,7 @@ export default class MapsView extends React.Component {
           onMapLoaded={()=>this.setState({loading:false})}
         >
           {this.state.data.map((item, index) => (
-            <Marker key={this.state.follow?`${item._id}${Date.now()}`:this.state.deviceId+index} pinColor={item.like >= 50 ? "red" : item.like >= 25 ? "yellow" : "green"} title={"จุดเสี่ยงที่ " + (item._id) + (item.like >= 50 ? " (อันตราย)" : item.like >= 25 ? " (โปรดระวัง)" : "")} description={item.รายละเอียด} coordinate={item.พิกัด.indexOf(" ") >= 0 ? { latitude: Number(item.พิกัด.slice(0, item.พิกัด.indexOf(","))), longitude: Number(item.พิกัด.slice(item.พิกัด.indexOf(" "))) } : { latitude: Number(item.พิกัด.slice(0, item.พิกัด.indexOf(","))), longitude: Number(item.พิกัด.slice(item.พิกัด.indexOf(",") + 1)) }} />
+            <Marker key={this.state.follow?`${item.riskID}${Date.now()}`:this.state.deviceId+index} pinColor={item.like >= 50 ? "red" : item.like >= 25 ? "yellow" : "green"} title={"จุดเสี่ยงที่ " + (item.riskID) + (item.like >= 50 ? " (อันตราย)" : item.like >= 25 ? " (โปรดระวัง)" : "")} description={item.detail} coordinate={item.coords.indexOf(" ") >= 0 ? { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" "))) } : { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",") + 1)) }} />
           ))}
         </MapView>
       </View>

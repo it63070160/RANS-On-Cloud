@@ -11,17 +11,18 @@ import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import { Cache } from "react-native-cache";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 export default function AddRisk(props) {
   const [marker, setMarker] = useState(null) // กำหนด Marker เมื่อผู้ใช้กดบริเวณแผนที่
   const [focusPos, setfocusPos] = useState({latitude: 13.736717, longitude: 100.523186}) // ตำแหน่งของผู้ใช้
   const [userCoords, setUserCoords] = useState(); // จับตำแหน่งเมื่อผู้ใช้ขยับ
   const [data, setData] = useState([]); // เก็บข้อมูลจุดเสี่ยง
-  const [detail, setDetail] = useState(""); // เก็บข้อมูลรายละเอียดจุดเสี่ยง
-  const [latitude, setlatitude] = useState(0); // เก็บข้อมูลรายละเอียดจุดเสี่ยง
-  const [longitude, setlongitude] = useState(0); // เก็บข้อมูลรายละเอียดจุดเสี่ยง
-  const [validateDetailFail, setvalidateDetailFail] = useState(false); // ตรวจสอบช่องที่รายละเอียดผู้ใช้ต้องกรอก
-  const [validatePosFail, setvalidatePosFail] = useState(false); // ตรวจสอบช่องที่พิกัดผู้ใช้ต้องกรอก
+  const [detail, setDetail] = useState(""); // เก็บข้อมูลdetailจุดเสี่ยง
+  const [latitude, setlatitude] = useState(0); // เก็บข้อมูลdetailจุดเสี่ยง
+  const [longitude, setlongitude] = useState(0); // เก็บข้อมูลdetailจุดเสี่ยง
+  const [validateDetailFail, setvalidateDetailFail] = useState(false); // ตรวจสอบช่องที่detailผู้ใช้ต้องกรอก
+  const [validatePosFail, setvalidatePosFail] = useState(false); // ตรวจสอบช่องที่coordsผู้ใช้ต้องกรอก
   const [deviceId, setDeviceId] = useState("") // Device ID ของผู้ใช้
   
   // เก็บ Device ID ของผู้ใช้
@@ -49,9 +50,28 @@ export default function AddRisk(props) {
     backend: AsyncStorage
   });
 
+  // ดึงข้อมูล
+  async function getAllData(){
+    try{
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/datas')
+        .then(response=>{
+          setData(response.data.datas)
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+    }catch(err){
+      console.error(err)
+    }
+  }
+
+  function findMaxID(){
+    return data.sort((a,b) => a.riskID - b.riskID).pop().riskID
+  }
+
   // เมื่อผู้ใช้กดเพิ่ม
   async function handleAddPress(){
-    let likeCache = await cache.get('like');
+    // let likeCache = await cache.get('like');
     if(props.handleAdd){
       props.handleAdd()
     }
@@ -70,26 +90,51 @@ export default function AddRisk(props) {
       props.closeAddModal()
       setvalidateDetailFail(false)
       setvalidatePosFail(false)
-      let maxData = data.reduce((prev, cur)=>prev._id > cur._id ? prev:cur)
-      const docRef = await addDoc(collection(db, 'rans-database'), {
-        _id: maxData._id + 1,
-        รายละเอียด: detail,
-        สำนักงานเขต: "-",
-        พิกัด: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
-        like: 1,
+      let maxID = findMaxID()
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      const payload = {
+        riskID: maxID+1,
         dislike: 0,
-        owner: deviceId
-      });
-      console.log("Document written with ID: ", docRef.id);
-      if(likeCache==undefined){
-        likeCache = []
+        like: 0,
+        owner: deviceId,
+        coords: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
+        detail: detail,
+        area: '-'
       }
-      likeCache.push(docRef.id)
-      await cache.set('like', likeCache) // Update Cache
+      try{
+        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/data', payload, {headers})
+          .then(response => {
+            console.log('Data items successfully inserted:', response.data);
+            props.refreshData()
+          })
+          .catch(error => {
+            console.error("Insert Error:", error)
+          })
+      }catch(err){
+        console.error(err)
+      }
+      // let maxData = data.reduce((prev, cur)=>prev._id > cur._id ? prev:cur)
+      // const docRef = await addDoc(collection(db, 'rans-database'), {
+      //   _id: maxData._id + 1,
+      //   detail: detail,
+      //   area: "-",
+      //   coords: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
+      //   like: 1,
+      //   dislike: 0,
+      //   owner: deviceId
+      // });
+      // console.log("Document written with ID: ", docRef.id);
+      // if(likeCache==undefined){
+      //   likeCache = []
+      // }
+      // likeCache.push(payload.riskID)
+      // await cache.set('like', likeCache) // Update Cache
     }
   }
 
-  // สร้าง Marker หากผู้ใช้พิมพ์พิกัดเอง
+  // สร้าง Marker หากผู้ใช้พิมพ์coordsเอง
   function createMarkerwithInput(){
     if(latitude && longitude){
       setMarker({latitude: latitude, longitude: longitude})
@@ -101,10 +146,10 @@ export default function AddRisk(props) {
   const getCollection = (querySnapshot) => {
     const all_data = [];
     querySnapshot.forEach((res) => {
-      const { _id, dislike, like, owner, พิกัด, รายละเอียด, สำนักงานเขต } = res.data();
+      const { _id, dislike, like, owner, coords, detail, area } = res.data();
       all_data.push({
         key: res.id,
-        _id, dislike, like, owner, พิกัด, รายละเอียด, สำนักงานเขต
+        _id, dislike, like, owner, coords, detail, area
       });
     });
     setData(all_data)
@@ -116,7 +161,8 @@ export default function AddRisk(props) {
         setfocusPos(location.coords)
     }
     getStartLocation();
-    const unsub = onSnapshot(collection(db, "rans-database"), getCollection);
+    getAllData();
+    // const unsub = onSnapshot(collection(db, "rans-database"), getCollection);
     GetDeviceID();
   }, [])
 
@@ -125,7 +171,7 @@ export default function AddRisk(props) {
       <View>
           <Text style={styles.InputHeader}>รายละเอียด <Text style={{color:"red", fontSize:validateDetailFail?12:0}}>* กรุณากรอกรายละเอียด</Text></Text>
           <TextInput style={[styles.Input, {borderColor:validateDetailFail?"red":"black"}]} placeholder='รายละเอียด' multiline={true} onChangeText={onChangeDetail} value={detail}/>
-          <Text style={styles.InputHeader}>ระบุตำแหน่ง <Text style={{color:"red", fontSize:validatePosFail?12:0}}>* กรุณาระบุพิกัด</Text></Text>
+          <Text style={styles.InputHeader}>ระบุตำแหน่ง <Text style={{color:"red", fontSize:validatePosFail?12:0}}>* กรุณาระบุcoords</Text></Text>
           <View style={styles.posContainer}>
             <TextInput style={[styles.posInput, {borderColor:validatePosFail?"red":"black"}]} placeholder='ละติจูด' keyboardType='numeric' value={latitude} onChangeText={onChangeLati} onChange={createMarkerwithInput}/>
             <TextInput style={[styles.posInput, {borderColor:validatePosFail?"red":"black"}]} placeholder='ลองจิจูด' keyboardType='numeric' value={longitude} onChangeText={onChangeLongi} onChange={createMarkerwithInput}/>
@@ -141,7 +187,7 @@ export default function AddRisk(props) {
       >
         {marker && <Marker coordinate={marker} pinColor={"aqua"}/>}
         { data.map((item, index) => (
-          <Marker key={index} pinColor={item.like>=50?"red":item.like>=25?"yellow":"green"} title={"จุดเสี่ยงที่ "+(index+1)+(item.like>=50?" (อันตราย)":item.like>=25?" (โปรดระวัง)":"")} description={item.รายละเอียด} coordinate = {item.พิกัด.indexOf(" ")>=0?{latitude: Number(item.พิกัด.slice(0, item.พิกัด.indexOf(","))), longitude: Number(item.พิกัด.slice(item.พิกัด.indexOf(" ")))}:{latitude: Number(item.พิกัด.slice(0, item.พิกัด.indexOf(","))), longitude: Number(item.พิกัด.slice(item.พิกัด.indexOf(",")+1))}}/>
+          <Marker key={index} pinColor={item.like>=50?"red":item.like>=25?"yellow":"green"} title={"จุดเสี่ยงที่ "+(item.riskID)+(item.like>=50?" (อันตราย)":item.like>=25?" (โปรดระวัง)":"")} description={item.detail} coordinate = {item.coords.indexOf(" ")>=0?{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" ")))}:{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",")+1))}}/>
         ))}
       </MapView>
       <View style={styles.buttonContainer}>
