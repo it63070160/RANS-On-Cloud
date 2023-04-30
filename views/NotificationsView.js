@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
+import axios from 'axios'; // ดึง API
 import db from '../database/firebaseDB';
 import { collection, query, getDocs, updateDoc, doc, orderBy, getDoc} from "firebase/firestore";
 import { Cache } from 'react-native-cache'; // cache
@@ -13,7 +14,8 @@ function CheckFocusScreen(props) {
   useFocusEffect(
     useCallback(() => {
       props.refresh()
-      props.GetData();
+      props.getData();
+      // props.GetData();
       props.Check();
       return () => {
         props.reset();
@@ -31,7 +33,8 @@ export default class NotificationsView extends React.Component{
       AllNoti: [],
       refresh: false
     }
-    this.GetData = this.GetData.bind(this);
+    // this.GetData = this.GetData.bind(this);
+    this.getData = this.getData.bind(this);
     this.CheckIgnoreRisk = this.CheckIgnoreRisk.bind(this)
     this.updateLike = this.updateLike.bind(this)
   }
@@ -74,27 +77,57 @@ export default class NotificationsView extends React.Component{
     await AsyncStorage.removeItem('ignoreList')
   }
 
-  async GetData () {
-    const q = query(collection(db, "rans-database"), orderBy("_id", "asc"));
-    const querySnapshot = await getDocs(q);
-    const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
-    const ignoreID = await this.cache.get('ignoreID')
-    const sortList = []
-    if(ignoreID!=undefined){
-      ignoreID.map((item)=>{
-        d.map((DBitem)=>{
-          if(item==DBitem.key){
-            sortList.push(DBitem)
+  async getData() {
+    try{
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
+        .then(async response => {
+          const ignoreID = await this.cache.get('ignoreID')
+          const sortList = []
+          if(ignoreID!=undefined){
+            ignoreID.map((item)=>{
+              // response.data.datas.filter((value)=>value.riskID==item)[0]
+              response.data.datas.map((DBitem)=>{
+                if(item==DBitem.riskID){
+                  sortList.push(DBitem)
+                }
+              })
+            })
           }
+          this.setState({
+            AllNoti: sortList,
+            data: response.data.datas,
+            refresh: false
+          })
         })
-      })
+        .catch(error=>{
+          console.error(error)
+        })
+    }catch(err){
+      console.error(err)
     }
-    this.setState({
-      AllNoti: sortList,
-      data: d,
-      refresh: false
-    })
   }
+
+  // async GetData () {
+  //   const q = query(collection(db, "rans-database"), orderBy("_id", "asc"));
+  //   const querySnapshot = await getDocs(q);
+  //   const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
+  //   const ignoreID = await this.cache.get('ignoreID')
+  //   const sortList = []
+  //   if(ignoreID!=undefined){
+  //     ignoreID.map((item)=>{
+  //       d.map((DBitem)=>{
+  //         if(item==DBitem.key){
+  //           sortList.push(DBitem)
+  //         }
+  //       })
+  //     })
+  //   }
+  //   this.setState({
+  //     AllNoti: sortList,
+  //     data: d,
+  //     refresh: false
+  //   })
+  // }
 
   async CheckIgnoreRisk () {
     const ignoreID = await this.cache.get('ignoreID')
@@ -117,38 +150,88 @@ export default class NotificationsView extends React.Component{
   }
 
   // อัปเดตข้อมูลการถูกใจใน Firebase Database
+  // async updateLike(key) {
+  //   const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
+  //   const querySnapshot = await getDoc(q);
+  //   const likeData = {key: querySnapshot.id, ...querySnapshot.data()};
+  //   let likeCache = await this.cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
+  //   if(likeCache==undefined){
+  //     likeCache = []
+  //   }
+  //   likeCache.push(key)
+  //   await updateDoc(doc(db, "rans-database", key), {
+  //     like: likeData.like+1
+  //   }).then(
+  //     console.log("Like Updated")
+  //   )
+  //   await this.cache.set('like', likeCache) // Update Cache
+  // }
+
   async updateLike(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const likeData = {key: querySnapshot.id, ...querySnapshot.data()};
-    let likeCache = await this.cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
-    if(likeCache==undefined){
-      likeCache = []
+    let likeData = {}
+    const params = {
+      "riskID": key
     }
-    likeCache.push(key)
-    await updateDoc(doc(db, "rans-database", key), {
-      like: likeData.like+1
-    }).then(
-      console.log("Like Updated")
-    )
+    await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          likeData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+    let updateParams = {
+      riskID: key,
+      dislike: likeData.dislike,
+      like: likeData.like+1,
+      owner: likeData.owner,
+      coords: likeData.coords,
+      detail: likeData.detail,
+      area: likeData.area
+    }
+    let likeCache = await this.cache.get('like')==undefined?[]:await this.cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
+    await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+      .then(response => {
+        console.log('Data items successfully inserted:', response.data);
+        likeCache.push(key)
+      })
+      .catch(error => {
+        console.error("Insert Error:", error)
+      })
     await this.cache.set('like', likeCache) // Update Cache
   }
 
   async updateDislike(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const dislikeData = {key: querySnapshot.id, ...querySnapshot.data()};
-    let disLikeCache = await this.cache.get('dislike');
-    if(disLikeCache==undefined){
-      disLikeCache = []
+    let dislikeData = {}
+    const params = {
+      "riskID": key
     }
-    disLikeCache.push(key)
-    await updateDoc(doc(db, "rans-database", key), {
-      dislike: dislikeData.like+1
-    }).then(
-      console.log("Dislike Updated")
-    )
+    await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          dislikeData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+    let updateParams = {
+      riskID: key,
+      dislike: dislikeData.dislike+1,
+      like: dislikeData.like,
+      owner: dislikeData.owner,
+      coords: dislikeData.coords,
+      detail: dislikeData.detail,
+      area: dislikeData.area
+    }
+    let disLikeCache = await this.cache.get('dislike')==undefined?[]:await this.cache.get('dislike');
+    await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+      .then(response => {
+        console.log('Data items successfully inserted:', response.data);
+        disLikeCache.push(key)
+      })
+      .catch(error => {
+        console.error("Insert Error:", error)
+      })
     await this.cache.set('dislike', disLikeCache)
+    console.log(await this.cache.getAll())
   }
   
   async likeHandle (key, index) {
@@ -180,16 +263,16 @@ export default class NotificationsView extends React.Component{
   render(){
     return(
       <ScrollView style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center' }:{ flexGrow: 1, justifyContent: 'center' }}>
-      <CheckFocusScreen GetData={this.GetData} Check={this.CheckIgnoreRisk} refresh={()=>{this.setState({refresh:true})}} reset={()=>{this.setState({AllNoti:[],data:[],refresh:false})}}/>
+      <CheckFocusScreen getData={this.getData} Check={this.CheckIgnoreRisk} refresh={()=>{this.setState({refresh:true})}} reset={()=>{this.setState({AllNoti:[],data:[],refresh:false})}}/>
       {!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?
       this.state.AllNoti.map((item, index)=>(
         <View style={styles.notiContainer} key={index}>
-          <Text style={styles.notiTitle}>{item.รายละเอียด}</Text>
+          <Text style={styles.notiTitle}>{item.detail}</Text>
           <View style={styles.notiButtonContainer} >
-            <TouchableOpacity style={[styles.notiButton, styles.greenButton]} onPress={()=>{this.likeHandle(item.key, index)}}>
+            <TouchableOpacity style={[styles.notiButton, styles.greenButton]} onPress={()=>{this.likeHandle(item.riskID, index)}}>
               <AntDesign name="like1" size={24} color={'black'} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.notiButton, styles.redButton]} onPress={()=>{this.dislikeHandle(item.key, index)}}>
+            <TouchableOpacity style={[styles.notiButton, styles.redButton]} onPress={()=>{this.dislikeHandle(item.riskID, index)}}>
               <AntDesign name="dislike1" size={24} color={'black'} />
             </TouchableOpacity>
           </View>

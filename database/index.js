@@ -24,13 +24,13 @@ exports.handler = async function(event) {
         case event.httpMethod === 'POST' && event.path === dataPath:
             response = await saveData(JSON.parse(event.body));
             break;
-        // case event.httpMethod === 'PATCH' && event.path === dataPath:
-        //     const requestBody = JSON.parse(event.body);
-        //     response = await editData(requestBody.riskID, requestBody.updateKey, requestBody.updateValue);
-        //     break;
-        // case event.httpMethod === 'DELETE' && event.path === dataPath:
-        //     response = await deleteData(JSON.parse(event.body.riskID));
-        //     break;
+        case event.httpMethod === 'PATCH' && event.path === dataPath:
+            const requestBody = JSON.parse(event.body);
+            response = await editData(requestBody.riskID, requestBody.updateKey, requestBody.updateValue);
+            break;
+        case event.httpMethod === 'DELETE' && event.path === dataPath:
+            response = await deleteData(JSON.parse(event.body.riskID));
+            break;
         default:
             response = buildResponse(404, '404 Not Found');
     }
@@ -41,7 +41,7 @@ async function getData(riskID) {
     const params = {
         TableName: dynamodbTableName,
         Key: {
-            'riskID': riskID
+            "riskID": parseInt(riskID)
         }
     }
     return await dynamodb.get(params).promise().then((response) => {
@@ -90,6 +90,50 @@ async function saveData(requestBody) {
         return buildResponse(200, body);
     }, (error) => {
         console.error("Error: ", error);
+    })
+}
+
+async function editData(riskID, updateKey, updateValue) {
+    const params = {
+      TableName: dynamodbTableName,
+      Key: {
+        'riskID': parseInt(riskID)
+      },
+      UpdateExpression: `set ${updateKey} = :value`,
+      ExpressionAttributeValues: {
+        ':value': updateValue
+      },
+      ReturnValues: 'UPDATED_NEW'
+    }
+    return await dynamodb.update(params).promise().then((response) => {
+      const body = {
+        Operation: 'UPDATE',
+        Message: 'SUCCESS',
+        UpdatedAttributes: response
+      }
+      return buildResponse(200, body);
+    }, (error) => {
+        console.error("Error: ", error);
+    })
+}
+  
+async function deleteData(riskID) {
+    const params = {
+      TableName: dynamodbTableName,
+      Key: {
+        'riskID': parseInt(riskID)
+      },
+      ReturnValues: 'ALL_OLD'
+    }
+    return await dynamodb.delete(params).promise().then((response) => {
+      const body = {
+        Operation: 'DELETE',
+        Message: 'SUCCESS',
+        Item: response
+      }
+      return buildResponse(200, body);
+    }, (error) => {
+      console.error('Error: ', error);
     })
 }
 

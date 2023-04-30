@@ -99,14 +99,14 @@ export default class MapsView extends React.Component {
 
     // Geofencing Task
     TaskManager.defineTask("LOCATION_GEOFENCE", ({ data: { eventType, region }, error }) => {
-      if (error) {
+      if (error || region.identifier == '0') {
         // check `error.message` for more details.
         return;
       }
       if (eventType === Location.GeofencingEventType.Enter) {
         if(this.state.alreadyNotify.indexOf(region.identifier) < 0){
           console.log("You've entered region:", region.identifier);
-          const location = this.state.data.filter((value)=>value.key==region.identifier)[0]
+          const location = this.state.data.filter((value)=>value.riskID==region.identifier)[0]
           const distrance = getPreciseDistance(this.state.userCoords, {latitude: region.latitude, longitude: region.longitude})
           this.notify(location.detail, distrance, region.identifier)
           this.setState(prevState => {
@@ -297,8 +297,8 @@ export default class MapsView extends React.Component {
     setTimeout(async ()=>{
       await Notifications.dismissNotificationAsync(noti)
       console.log(`Notification ${noti} cancelled`);
-      this.pushToNotificationPage(riskID)
     }, (this.state.delayTime+(8000/this.state.notifyCount)))
+    this.pushToNotificationPage(parseInt(riskID))
     this.forceUpdate()
   }
 
@@ -324,7 +324,7 @@ export default class MapsView extends React.Component {
         );
         if(pdis<=150){
           fencing_data.push({
-            identifier: res.key,
+            identifier: res.riskID.toString(),
             latitude: Number(res.coords.slice(0, res.coords.indexOf(","))),
             longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1)),
             radius: res.like>=50?150:res.like>=25?100:50,
@@ -341,7 +341,7 @@ export default class MapsView extends React.Component {
         this.setState({
           fencing: [
             {
-              identifier: 'default',
+              identifier: '0',
               latitude: 37.785834,
               longitude: -122.406417,
               radius: 10,
@@ -489,52 +489,52 @@ export default class MapsView extends React.Component {
   }
 
   // ดึงข้อมูลแบบ Real time
-  getCollection = (querySnapshot) => {
-    const all_data = [];
-    const fencing_data = [];
-    querySnapshot.forEach((res) => {
-      const { _id, dislike, like, owner, coords, detail, area } = res.data();
-      all_data.push({
-        key: res.id,
-        _id, dislike, like, owner, coords, detail, area
-      });
-      var pdis = getPreciseDistance(
-        this.state.userCoords,
-        {latitude: Number(coords.slice(0, coords.indexOf(","))), longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1))}
-      );
-      if(pdis<=150){
-        fencing_data.push({
-          identifier: res.id,
-          latitude: Number(coords.slice(0, coords.indexOf(","))),
-          longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1)),
-          radius: like>=50?150:like>=25?100:50,
-          notifyOnEnter: true,
-          notifyOnExit: true
-        })
-      }
-    });
-    if(fencing_data.length != 0){
-      this.setState({
-        data: all_data,
-        fencing: fencing_data
-      });
-    }else{
-      this.setState({
-        data: all_data,
-        fencing: [
-          {
-            identifier: 'default',
-            latitude: 37.785834,
-            longitude: -122.406417,
-            radius: 10,
-            notifyOnEnter: true,
-            notifyOnExit: false,
-          }
-        ]
-      })
-    }
-    this.forceUpdate()
-  };
+  // getCollection = (querySnapshot) => {
+  //   const all_data = [];
+  //   const fencing_data = [];
+  //   querySnapshot.forEach((res) => {
+  //     const { _id, dislike, like, owner, coords, detail, area } = res.data();
+  //     all_data.push({
+  //       key: res.id,
+  //       _id, dislike, like, owner, coords, detail, area
+  //     });
+  //     var pdis = getPreciseDistance(
+  //       this.state.userCoords,
+  //       {latitude: Number(coords.slice(0, coords.indexOf(","))), longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1))}
+  //     );
+  //     if(pdis<=150){
+  //       fencing_data.push({
+  //         identifier: res.id,
+  //         latitude: Number(coords.slice(0, coords.indexOf(","))),
+  //         longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1)),
+  //         radius: like>=50?150:like>=25?100:50,
+  //         notifyOnEnter: true,
+  //         notifyOnExit: true
+  //       })
+  //     }
+  //   });
+  //   if(fencing_data.length != 0){
+  //     this.setState({
+  //       data: all_data,
+  //       fencing: fencing_data
+  //     });
+  //   }else{
+  //     this.setState({
+  //       data: all_data,
+  //       fencing: [
+  //         {
+  //           identifier: 'default',
+  //           latitude: 37.785834,
+  //           longitude: -122.406417,
+  //           radius: 10,
+  //           notifyOnEnter: true,
+  //           notifyOnExit: false,
+  //         }
+  //       ]
+  //     })
+  //   }
+  //   this.forceUpdate()
+  // };
 
   arraysEqual(arr1, arr2) {
     if (arr1.length !== arr2.length) {
@@ -616,13 +616,10 @@ export default class MapsView extends React.Component {
   }
 
   async insertDataFromAPI() {
-    const headers = {
-      'Content-Type': 'application/json'
-    };
     try{
       this.state.data.forEach(async (res)=>{
         // console.log(res)
-        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/data', res, {headers})
+        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', res)
           .then(response => {
             console.log('Data items successfully inserted:', response.data);
           })
@@ -636,16 +633,50 @@ export default class MapsView extends React.Component {
   }
 
   async getData() {
+    const fencing_data = [];
     try{
-      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/datas')
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
         .then(response=>{
-          this.setState({
-            data: response.data.datas
+          response.data.datas.forEach((res) => {
+            var pdis = getPreciseDistance(
+              this.state.userCoords,
+              {latitude: Number(res.coords.slice(0, res.coords.indexOf(","))), longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1))}
+            );
+            if(pdis<=150){
+              fencing_data.push({
+                identifier: res.riskID.toString(),
+                latitude: Number(res.coords.slice(0, res.coords.indexOf(","))),
+                longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1)),
+                radius: res.like>=50?150:res.like>=25?100:50,
+                notifyOnEnter: true,
+                notifyOnExit: true
+              })
+            }
           })
+          if(fencing_data.length != 0){
+            this.setState({
+              data: response.data.datas,
+              fencing: fencing_data
+            });
+          }else{
+            this.setState({
+              data: response.data.datas,
+              fencing: [
+                {
+                  identifier: '0',
+                  latitude: 37.785834,
+                  longitude: -122.406417,
+                  radius: 10,
+                  notifyOnEnter: true,
+                  notifyOnExit: false,
+                }
+              ]
+            })
+          }
           if(this.intervalId == null){
             this.intervalId = setInterval(() => {
               // Code to be executed at the interval
-              console.log("Data Refresh")
+              console.log(Date().toString()+": Data Refresh")
               this.getData()
             }, 60000);
           }
@@ -660,7 +691,7 @@ export default class MapsView extends React.Component {
 
   async getDataFromAPI() {
     try{
-      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/datas')
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
         .then(response=>{
           this.setState({
             data: response.data.datas
@@ -838,7 +869,7 @@ export default class MapsView extends React.Component {
           onMapLoaded={()=>this.setState({loading:false})}
         >
           {this.state.data.map((item, index) => (
-            <Marker key={this.state.follow?`${item.riskID}${Date.now()}`:this.state.deviceId+index} pinColor={item.like >= 50 ? "red" : item.like >= 25 ? "yellow" : "green"} title={"จุดเสี่ยงที่ " + (item.riskID) + (item.like >= 50 ? " (อันตราย)" : item.like >= 25 ? " (โปรดระวัง)" : "")} description={item.detail} coordinate={item.coords.indexOf(" ") >= 0 ? { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" "))) } : { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",") + 1)) }} />
+            <Marker key={this.state.follow?`${item.riskID}${Date.now()}`:this.state.deviceId+index} pinColor={item.like >= 50 ? "red" : item.like >= 25 ? "yellow" : "green"} title={"จุดเสี่ยง" + (item.like >= 50 ? " (อันตราย)" : item.like >= 25 ? " (โปรดระวัง)" : "")} description={item.detail} coordinate={item.coords.indexOf(" ") >= 0 ? { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" "))) } : { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",") + 1)) }} />
           ))}
         </MapView>
       </View>

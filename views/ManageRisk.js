@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { encrypt, decrypt } from '../components/Encryption';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
+import axios from 'axios';
 
 export default function ManageRisk({ navigation, route }) {
   const [data, setData] = useState([]); // data เก็บข้อมูลจุดเสี่ยง
@@ -53,39 +54,69 @@ export default function ManageRisk({ navigation, route }) {
     }
   }
 
-  // function GetData ดึงข้อมูลจาก Firebase Database
-  async function GetData() {
-    const q = query(collection(db, "rans-database"), orderBy("_id", 'asc'));
-    const querySnapshot = await getDocs(q);
-    const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
-    setData(d)
-    const startPage = d.filter((item, index)=>index>=start && index<start+5) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
-    setPageData(startPage) // เก็บที่ filter ออกมา
-    if(start==1){
-      setStart(start+5)
+  async function GetData(){
+    try{
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
+        .then(response=>{
+          response.data.datas.sort((a,b) => a.riskID - b.riskID)
+          setData(response.data.datas)
+          const startPage = response.data.datas.filter((item, index)=>index>=start && index<start+5) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
+          setPageData(startPage) // เก็บที่ filter ออกมา
+          if(start==1){
+            setStart(start+5)
+          }
+          setRefresh(false)
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+    }catch(err){
+      console.error(err)
     }
-    setRefresh(false)
   }
 
+  // function GetData ดึงข้อมูลจาก Firebase Database
+  // async function GetData() {
+  //   const q = query(collection(db, "rans-database"), orderBy("_id", 'asc'));
+  //   const querySnapshot = await getDocs(q);
+  //   const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
+  //   setData(d)
+  //   const startPage = d.filter((item, index)=>index>=start && index<start+5) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
+  //   setPageData(startPage) // เก็บที่ filter ออกมา
+  //   if(start==1){
+  //     setStart(start+5)
+  //   }
+  //   setRefresh(false)
+  // }
+
   async function onFocusGetData() {
-    const q = query(collection(db, "rans-database"), orderBy("_id", 'asc'));
-    const querySnapshot = await getDocs(q);
-    const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
-    setData(d)
-    if(searching){
-      const searchData = d.filter((item)=>(item.รายละเอียด.indexOf(search)>=0 || item.สำนักงานเขต.indexOf(search)>=0)).sort((a,b) => (a._id > b._id) ? 1 : ((b._id > a._id) ? -1 : 0))
-      setPageData(searchData)
-    }else{
-      if(start==1){
-        const startPage = d.filter((item, index)=>index>=start && index<start+5) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
-        setPageData(startPage)
-        setStart(start+5)
-      }else{
-        const startPage = d.filter((item, index)=>index>=start-5 && index<start) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
-        setPageData(startPage)
-      }
-      setRefresh(false)
-    }
+    // const q = query(collection(db, "rans-database"), orderBy("_id", 'asc'));
+    // const querySnapshot = await getDocs(q);
+    // const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
+    // setData(d)
+    await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
+      .then(response=>{
+        response.data.datas.sort((a,b) => a.riskID - b.riskID)
+        setData(response.data.datas)
+        if(searching){
+          // const searchData = response.data.datas.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0))
+          const searchData = response.data.datas.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID)
+          setPageData(searchData)
+        }else{
+          if(start==1){
+            const startPage = response.data.datas.filter((item, index)=>index>=start && index<start+5) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
+            setPageData(startPage)
+            setStart(start+5)
+          }else{
+            const startPage = response.data.datas.filter((item, index)=>index>=start-5 && index<start) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
+            setPageData(startPage)
+          }
+          setRefresh(false)
+        }
+      })
+      .catch(error=>{
+        console.error(error)
+      })
   }
 
   // เก็บ Device ID ของผู้ใช้
@@ -100,16 +131,26 @@ export default function ManageRisk({ navigation, route }) {
 
   // function GetDataByID ดึงข้อมูลจาก Firebase Database ที่มี id ตาม parameter
   async function GetDataByID(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const d = {key: querySnapshot.id, ...querySnapshot.data()};
+    // const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
+    // const querySnapshot = await getDoc(q);
+    var d = {};
+    const params = {
+      "riskID": key
+    }
+    await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+      .then(response => {
+        d = response.data
+      })
+      .catch(error=>{
+        console.error(error)
+      })
     if(d){
       if(decrypt(d.owner)==decrypt(deviceId)){
         setDetailData({data: d, userOwn: true}) // เก็บข้อมูลจุดเสี่ยงที่ filter โดยการ where จาก firebase database
       }else{
         setDetailData({data: d, userOwn: false}) // เก็บข้อมูลจุดเสี่ยงที่ filter โดยการ where จาก firebase database
       }
-      setEditText(d.รายละเอียด)
+      setEditText(d.detail)
     }else{
       alert("ไม่พบข้อมูล (ข้อมูลอาจถูกลบไปแล้ว)")
       setDetailVisible(false)
@@ -137,7 +178,8 @@ export default function ManageRisk({ navigation, route }) {
   // เมื่อผู้ใช้กดปุ่มถัดไป
   function NextPage(){
     if(searching){ // ถ้าผู้ใช้ค้นหาอยู่จะแสดงเฉพาะข้อมูลที่มีส่วนเกี่ยวข้องกับที่ค้นหา
-      const searchData = data.filter((item)=>(item.รายละเอียด.indexOf(search)>=0 || item.สำนักงานเขต.indexOf(search)>=0)).sort((a,b) => (a._id > b._id) ? 1 : ((b._id > a._id) ? -1 : 0)) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
+      // const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0)) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
+      const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
       const searchPage = searchData.filter((item, index)=>index>=searchStart && index<searchStart+5) // แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
       if(searchData.length%5!=0){
         if((pageCount+1)>Math.floor(searchData.length/5)+1){ // ป้องกันการกดปุ่มเกิน
@@ -173,7 +215,8 @@ export default function ManageRisk({ navigation, route }) {
       return
     }
     if(searching){
-      const searchData = data.filter((item)=>(item.รายละเอียด.indexOf(search)>=0 || item.สำนักงานเขต.indexOf(search)>=0)).sort((a,b) => (a._id > b._id) ? 1 : ((b._id > a._id) ? -1 : 0))
+      const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID)
+      // const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0))
       const searchPage = searchData.filter((item, index)=>index>=searchStart-10 && index<searchStart-5) // -10 ให้กลับไปเป็น x ถึง x+5 อีกครั้ง
       setPageData(searchPage)
       setSearchStart(searchStart-5)
@@ -202,7 +245,7 @@ export default function ManageRisk({ navigation, route }) {
               <View style={styles.modalCloseButton}>
                 {detailData.userOwn?
                 editPress?
-                <TouchableOpacity style={{marginRight: 10}} onPress={()=>{editDetail(detailData.data.key)}}>
+                <TouchableOpacity style={{marginRight: 10}} onPress={()=>{editDetail(detailData.data.riskID)}}>
                   <MaterialIcons name="check" size={24} color="black" />
                 </TouchableOpacity>
                 :<TouchableOpacity style={{marginRight: 10}} onPress={()=>setEditPress(true)}>
@@ -214,7 +257,7 @@ export default function ManageRisk({ navigation, route }) {
               </View>
               <Text style={styles.modalTextHeader}>รายละเอียด</Text>
               {detailData.length!=0?
-              <View key={detailData.data.key}>
+              <View key={detailData.data.riskID}>
                 <View>
                   {editPress?
                   <View style={{flexDirection:'row', marginBottom: 10}}>
@@ -225,15 +268,15 @@ export default function ManageRisk({ navigation, route }) {
                   :<View style={{marginBottom: 15}}>
                     <Text><Text style={{ fontWeight: 'bold'}}>รายละเอียด</Text>: {editText}</Text>
                   </View>}
-                  <Text><Text style={{ fontWeight: 'bold' }}>สำนักงานเขต</Text>: {detailData.data.สำนักงานเขต}</Text>
+                  <Text><Text style={{ fontWeight: 'bold' }}>สำนักงานเขต</Text>: {detailData.data.area}</Text>
                 </View>
                 <View style={styles.modalBottomContainer}>
-                  <Text style={[styles.textStyle, {color:alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==detailData.data.key).length>0?'#6BF38B':'black'}]}>
-                    <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==detailData.data.key).length>0?'#6BF38B':'black'} />
+                  <Text style={[styles.textStyle, {color:alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==detailData.data.riskID).length>0?'#6BF38B':'black'}]}>
+                    <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==detailData.data.riskID).length>0?'#6BF38B':'black'} />
                     {'\t'}{detailData.data.like}
                   </Text>
-                  <Text style={[styles.textStyle, {color:alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==detailData.data.key).length>0?'#F36C6C':'black'}]}>
-                    <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==detailData.data.key).length>0?'#F36C6C':'black'} />
+                  <Text style={[styles.textStyle, {color:alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==detailData.data.riskID).length>0?'#F36C6C':'black'}]}>
+                    <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==detailData.data.riskID).length>0?'#F36C6C':'black'} />
                     {'\t'}{detailData.data.dislike}
                   </Text>
                 </View>
@@ -260,17 +303,45 @@ export default function ManageRisk({ navigation, route }) {
       setEditPress(false);
       closeDetail()
       setRefresh(true)
-      const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-      const querySnapshot = await getDoc(q);
-      if(querySnapshot.exists){
-        await updateDoc(doc(db, "rans-database", key), {
-          รายละเอียด: editText
-        }).then(
-          console.log("Detail Updated")
-        )
-      }else{
-        alert("ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
+      let editData = {}
+      const params = {
+        "riskID": key
       }
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          editData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+      let updateParams = {
+        riskID: key,
+        dislike: editData.dislike,
+        like: editData.like,
+        owner: editData.owner,
+        coords: editData.coords,
+        detail: editText,
+        area: editData.area
+      }
+      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+        .then(response => {
+          console.log('Data items successfully inserted:', response.data);
+        })
+        .catch(error => {
+          alert("ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
+          console.error("Insert Error:", error)
+        })
+      // const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
+      // const querySnapshot = await getDoc(q);
+      // if(querySnapshot.exists){
+      //   await updateDoc(doc(db, "rans-database", key), {
+      //     รายละเอียด: editText
+      //   }).then(
+      //     console.log("Detail Updated")
+      //   )
+      // }else{
+      //   alert("ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
+      // }
       setRefresh(false)
       onFocusGetData()
     }
@@ -286,34 +357,74 @@ export default function ManageRisk({ navigation, route }) {
 
   // อัปเดตข้อมูลการถูกใจใน Firebase Database
   async function updateLike(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const likeData = {key: querySnapshot.id, ...querySnapshot.data()};
-    let likeCache = await cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
-    let disLikeCache = await cache.get('dislike');
+    let likeCache = await cache.get('like')==undefined?[]:await cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
+    let disLikeCache = await cache.get('dislike')==undefined?[]:await cache.get('dislike');
     let likeCheck = []
     let disLikeCheck = []
-    if(disLikeCache!=undefined){
+    if(disLikeCache.length>0){
       disLikeCheck = disLikeCache.filter((item)=>item==key)
     }
-    if(likeCache==undefined){
-      likeCache = [] // ถ้าไม่มี Cache หรือ ไม่เคย Like จะ set ใหม่
+    if(likeCache.length>0){
+      likeCheck = likeCache.filter((item)=>item==key)
     }
-    likeCheck = likeCache.filter((item)=>item==key)
     if(likeCheck.length==0 && disLikeCheck.length==0){ // เช็คว่าเคย Like หรือ DisLike หรือไม่
-      likeCache.push(key)
-      await updateDoc(doc(db, "rans-database", key), {
-        like: likeData.like+1
-      }).then(
-        console.log("Like Updated")
-      )
+      let likeData = {}
+      const params = {
+        "riskID": key
+      }
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          likeData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+      let updateParams = {
+        riskID: key,
+        dislike: likeData.dislike,
+        like: likeData.like+1,
+        owner: likeData.owner,
+        coords: likeData.coords,
+        detail: likeData.detail,
+        area: likeData.area
+      }
+      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+        .then(response => {
+          console.log('Data items successfully inserted:', response.data);
+          likeCache.push(key)
+        })
+        .catch(error => {
+          console.error("Insert Error:", error)
+        })
     }else if(likeCheck.length>0){ // ถ้า Like อยู่แล้ว จะเอา Like ออก
-      likeCache.splice(likeCache.findIndex((item)=>item==key), 1)
-      await updateDoc(doc(db, "rans-database", key), {
-        like: likeData.like-1
-      }).then(
-        console.log("Like Updated")
-      )
+      let likeData = {}
+      const params = {
+        "riskID": key
+      }
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          likeData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+      let updateParams = {
+        riskID: key,
+        dislike: likeData.dislike,
+        like: likeData.like-1,
+        owner: likeData.owner,
+        coords: likeData.coords,
+        detail: likeData.detail,
+        area: likeData.area
+      }
+      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+        .then(response => {
+          console.log('Data items successfully inserted:', response.data);
+          likeCache.splice(likeCache.findIndex((item)=>item==key), 1)
+        })
+        .catch(error => {
+          console.error("Insert Error:", error)
+        })
     }else{
       alert('Already Dislike')
     }
@@ -323,34 +434,74 @@ export default function ManageRisk({ navigation, route }) {
 
   // อัปเดตข้อมูลการไม่ถูกใจใน Firebase Database
   async function updateDislike(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const dislikeData = {key: querySnapshot.id, ...querySnapshot.data()};
-    let likeCache = await cache.get('like');
-    let disLikeCache = await cache.get('dislike');
+    let likeCache = await cache.get('like')==undefined?[]:await cache.get('like');
+    let disLikeCache = await cache.get('dislike')==undefined?[]:await cache.get('dislike');
     let likeCheck = []
     let disLikeCheck = []
-    if(likeCache!=undefined){
+    if(disLikeCache.length>0){
+      disLikeCheck = disLikeCache.filter((item)=>item==key)
+    }
+    if(likeCache.length>0){
       likeCheck = likeCache.filter((item)=>item==key)
     }
-    if(disLikeCache==undefined){
-      disLikeCache = []
-    }
-    disLikeCheck = disLikeCache.filter((item)=>item==key)
     if(disLikeCheck.length==0 && likeCheck.length==0){
-      disLikeCache.push(key)
-      await updateDoc(doc(db, "rans-database", key), {
-        dislike: dislikeData.dislike+1
-      }).then(
-        console.log("Dislike Updated")
-      )
+      let dislikeData = {}
+      const params = {
+        "riskID": key
+      }
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          dislikeData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+      let updateParams = {
+        riskID: key,
+        dislike: dislikeData.dislike+1,
+        like: dislikeData.like,
+        owner: dislikeData.owner,
+        coords: dislikeData.coords,
+        detail: dislikeData.detail,
+        area: dislikeData.area
+      }
+      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+        .then(response => {
+          console.log('Data items successfully inserted:', response.data);
+          disLikeCache.push(key)
+        })
+        .catch(error => {
+          console.error("Insert Error:", error)
+        })
     }else if(disLikeCheck.length>0){
-      disLikeCache.splice(disLikeCache.findIndex((item)=>item==key), 1)
-      await updateDoc(doc(db, "rans-database", key), {
-        dislike: dislikeData.dislike-1
-      }).then(
-        console.log("Dislike Updated")
-      )
+      let dislikeData = {}
+      const params = {
+        "riskID": key
+      }
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+        .then(response => {
+          dislikeData = response.data
+        })
+        .catch(error=>{
+          console.error(error)
+        })
+      let updateParams = {
+        riskID: key,
+        dislike: dislikeData.dislike-1,
+        like: dislikeData.like,
+        owner: dislikeData.owner,
+        coords: dislikeData.coords,
+        detail: dislikeData.detail,
+        area: dislikeData.area
+      }
+      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+        .then(response => {
+          console.log('Data items successfully inserted:', response.data);
+          disLikeCache.splice(disLikeCache.findIndex((item)=>item==key), 1)
+        })
+        .catch(error => {
+          console.error("Insert Error:", error)
+        })
     }else{
       alert('Already Like')
     }
@@ -373,7 +524,7 @@ export default function ManageRisk({ navigation, route }) {
   // เมื่อกดปุ่มค้นหา
   function Search(){
     setSearching(true)
-    const searchData = data.filter((item)=>(item.รายละเอียด.indexOf(search)>=0 || item.สำนักงานเขต.indexOf(search)>=0)).sort((a,b) => (a._id > b._id) ? 1 : ((b._id > a._id) ? -1 : 0)) // ค้นหาและเรียง id
+    const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0)) // ค้นหาและเรียง id
     if(search == ""){ // เมื่อไม่ได้ใส่อะไรในช่องค้นหาและกดค้นหาจะกลับไปที่เดิมหรืออยู่กับที่
       const startPage = data.filter((item, index)=>index>=start-5 && index<start)
       setSearching(false)
@@ -475,18 +626,18 @@ export default function ManageRisk({ navigation, route }) {
       {!refresh?
       pageData.map((item, index)=>(
       <View style={[styles.riskContainer, {opacity:detailVisible?0.3:1}]} key={index}>
-        <Text style={styles.riskTitle}>{item.รายละเอียด}</Text>
+        <Text style={styles.riskTitle}>{item.detail.length>30?item.detail.slice(0, 30)+"...":item.detail}</Text>
         <View style={styles.infoButtonContainer}>
-          <TouchableOpacity style={styles.infoButton} onPress={()=>{GetDataByID(item.key);showDetail()}}>
+          <TouchableOpacity style={styles.infoButton} onPress={()=>{GetDataByID(item.riskID);showDetail()}}>
             <AntDesign name="infocirlceo" size={24} color="black"/>
           </TouchableOpacity>
         </View>
         <View style={styles.riskButtonContainer}>
-          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateLike(item.key)}}>
-            <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==item.key).length>0?'#6BF38B':'black'}/>
+          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateLike(item.riskID)}}>
+            <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==item.riskID).length>0?'#6BF38B':'black'}/>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateDislike(item.key)}}>
-            <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==item.key).length>0?'#F36C6C':'black'}/>
+          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateDislike(item.riskID)}}>
+            <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==item.riskID).length>0?'#F36C6C':'black'}/>
           </TouchableOpacity>
         </View>
       </View>
@@ -579,6 +730,7 @@ const styles = StyleSheet.create({
   },
   modalView: {
     margin: 20,
+    marginTop: '50%',
     backgroundColor: 'white',
     borderRadius: 20,
     padding: 35,

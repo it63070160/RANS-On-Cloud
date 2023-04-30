@@ -53,7 +53,7 @@ export default function AddRisk(props) {
   // ดึงข้อมูล
   async function getAllData(){
     try{
-      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/datas')
+      await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
         .then(response=>{
           setData(response.data.datas)
         })
@@ -91,9 +91,6 @@ export default function AddRisk(props) {
       setvalidateDetailFail(false)
       setvalidatePosFail(false)
       let maxID = findMaxID()
-      const headers = {
-        'Content-Type': 'application/json'
-      };
       const payload = {
         riskID: maxID+1,
         dislike: 0,
@@ -104,7 +101,7 @@ export default function AddRisk(props) {
         area: '-'
       }
       try{
-        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/prod/data', payload, {headers})
+        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', payload)
           .then(response => {
             console.log('Data items successfully inserted:', response.data);
             props.refreshData()
@@ -187,7 +184,7 @@ export default function AddRisk(props) {
       >
         {marker && <Marker coordinate={marker} pinColor={"aqua"}/>}
         { data.map((item, index) => (
-          <Marker key={index} pinColor={item.like>=50?"red":item.like>=25?"yellow":"green"} title={"จุดเสี่ยงที่ "+(item.riskID)+(item.like>=50?" (อันตราย)":item.like>=25?" (โปรดระวัง)":"")} description={item.detail} coordinate = {item.coords.indexOf(" ")>=0?{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" ")))}:{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",")+1))}}/>
+          <Marker key={index} pinColor={item.like>=50?"red":item.like>=25?"yellow":"green"} title={"จุดเสี่ยง"+(item.like>=50?" (อันตราย)":item.like>=25?" (โปรดระวัง)":"")} description={item.detail} coordinate = {item.coords.indexOf(" ")>=0?{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" ")))}:{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",")+1))}}/>
         ))}
       </MapView>
       <View style={styles.buttonContainer}>
