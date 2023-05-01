@@ -2,11 +2,12 @@ import { StyleSheet, View, Text, ActivityIndicator , ScrollView, TouchableOpacit
 import db from '../database/firebaseDB';
 import { collection, addDoc, getDocs, onSnapshot, where, query, deleteDoc } from "firebase/firestore";
 import { Dimensions } from "react-native";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 // https://npm.io/package/react-native-animated-charts
 import BarChart from '../components/BarChart';
 import { graphColor } from '../constants/colors'
 import { groupBy } from "lodash";
+import { useFocusEffect } from '@react-navigation/native';
 
 import axios from 'axios'; // ดึง API
 
@@ -170,6 +171,14 @@ export default function StatisticView() {
       //   console.log(error)
       // });
     }, [])
+
+    useFocusEffect(
+      useCallback(() => {
+          getAllData()
+          return () => {
+          };
+      }, [])
+    );
 
     return (
         <View style={styles.container}>

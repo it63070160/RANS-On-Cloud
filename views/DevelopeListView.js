@@ -1,9 +1,10 @@
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Modal, Pressable, TextInput} from "react-native";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AntDesign } from "@expo/vector-icons";
 import { ScrollView } from "react-native";
 import axios from "axios";
 import { encrypt } from "../components/Encryption";
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function DevelopeListView({route}){
 
@@ -154,6 +155,14 @@ export default function DevelopeListView({route}){
     useEffect(() => {
         getAllDev()
     }, [])
+
+    useFocusEffect(
+        useCallback(() => {
+            getAllDev()
+            return () => {
+            };
+        }, [])
+      );
 
     return (
         <View style={styles.container}>

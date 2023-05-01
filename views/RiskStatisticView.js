@@ -1,11 +1,12 @@
 import { StyleSheet, View, Text, ActivityIndicator , ScrollView, TouchableOpacity, Animated, Easing } from "react-native";
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Dimensions } from "react-native";
 import { collection, addDoc, getDocs, onSnapshot, where, query, deleteDoc } from "firebase/firestore";
 import db from "../database/firebaseDB";
 import { AntDesign } from "@expo/vector-icons";
 import List from '../components/List';
 import axios from "axios";
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function RiskStatisticView(){
 
@@ -81,6 +82,14 @@ export default function RiskStatisticView(){
         //   console.log(error)
         // });
       }, [])
+
+      useFocusEffect(
+        useCallback(() => {
+            getAllData()
+            return () => {
+            };
+        }, [])
+      );
 
     return (
         <View style={styles.container}>
