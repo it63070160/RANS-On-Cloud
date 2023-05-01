@@ -568,7 +568,7 @@ export default function ManageRisk({ navigation, route }) {
             <TouchableOpacity style={styles.modalCloseButton} onPress={()=>{setAddPress(false)}}>
               <AntDesign name="close" size={24} color="black" />
             </TouchableOpacity>
-            <AddRisk closeAddModal={closeAddModal} handleAdd={handleAdd}/>
+            <AddRisk closeAddModal={closeAddModal} handleAdd={handleAdd} refreshData={GetData}/>
           </View>
         </View>
       </Modal>

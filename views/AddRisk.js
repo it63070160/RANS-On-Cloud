@@ -96,8 +96,8 @@ export default function AddRisk(props) {
       const options = { language: 'th' };
       Location.reverseGeocodeAsync({ latitude: parseFloat((Math.round(marker.latitude*1000000)/1000000).toFixed(6)), longitude: parseFloat((Math.round(marker.longitude*1000000)/1000000).toFixed(6)) }, options)
         .then((result) => {
-          let district_th = result[0].subregion
-          // district_th = district[district_en]
+          let district_en = result[0].subregion
+          let district_th = district[district_en]
 
           const payload = {
             riskID: maxID,
@@ -106,7 +106,7 @@ export default function AddRisk(props) {
             owner: deviceId,
             coords: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
             detail: detail,
-            area: district_th
+            area: typeof district_th === 'undefined'? district_en : district_th
           }
 
           try{
