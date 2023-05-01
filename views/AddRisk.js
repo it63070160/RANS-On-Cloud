@@ -12,6 +12,7 @@ import * as Application from 'expo-application';
 import { Cache } from "react-native-cache";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { district } from '../constants/district';
 
 export default function AddRisk(props) {
   const [marker, setMarker] = useState(null) // กำหนด Marker เมื่อผู้ใช้กดบริเวณแผนที่
@@ -24,7 +25,7 @@ export default function AddRisk(props) {
   const [validateDetailFail, setvalidateDetailFail] = useState(false); // ตรวจสอบช่องที่detailผู้ใช้ต้องกรอก
   const [validatePosFail, setvalidatePosFail] = useState(false); // ตรวจสอบช่องที่coordsผู้ใช้ต้องกรอก
   const [deviceId, setDeviceId] = useState("") // Device ID ของผู้ใช้
-  
+
   // เก็บ Device ID ของผู้ใช้
   async function GetDeviceID() {
     if (Device.osName == 'iPadOS' || Device.osName == 'iOS'){
@@ -91,27 +92,42 @@ export default function AddRisk(props) {
       setvalidateDetailFail(false)
       setvalidatePosFail(false)
       let maxID = findMaxID()
-      const payload = {
-        riskID: maxID,
-        dislike: 0,
-        like: 0,
-        owner: deviceId,
-        coords: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
-        detail: detail,
-        area: '-'
-      }
-      try{
-        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', payload)
-          .then(response => {
-            console.log('Data items successfully inserted:', response.data);
-            props.refreshData()
-          })
-          .catch(error => {
-            console.error("Insert Error:", error)
-          })
-      }catch(err){
-        console.error(err)
-      }
+
+      const options = { language: 'th' };
+      Location.reverseGeocodeAsync({ latitude: parseFloat((Math.round(marker.latitude*1000000)/1000000).toFixed(6)), longitude: parseFloat((Math.round(marker.longitude*1000000)/1000000).toFixed(6)) }, options)
+        .then((result) => {
+          let district_th = result[0].subregion
+          // district_th = district[district_en]
+
+          const payload = {
+            riskID: maxID,
+            dislike: 0,
+            like: 0,
+            owner: deviceId,
+            coords: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
+            detail: detail,
+            area: district_th
+          }
+
+          try{
+            axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', payload)
+              .then(response => {
+                console.log('Data items successfully inserted:', response.data);
+                props.refreshData()
+              })
+              .catch(error => {
+                console.error("Insert Error:", error)
+              })
+          }catch(err){
+            console.error(err)
+          }
+
+        })
+        .catch((error) => {
+          console.log(error);
+        }
+      );
+      
       // let maxData = data.reduce((prev, cur)=>prev._id > cur._id ? prev:cur)
       // const docRef = await addDoc(collection(db, 'rans-database'), {
       //   _id: maxData._id + 1,
