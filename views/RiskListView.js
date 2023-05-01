@@ -102,7 +102,7 @@ export default function RiskListView({route}){
                                 const payload = {
                                     riskID: data[i]._id,
                                     dislike: 0,
-                                    like: 0,
+                                    like: 1,
                                     owner: '-',
                                     coords: data[i].พิกัด,
                                     detail: data[i].รายละเอียด,

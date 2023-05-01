@@ -703,7 +703,7 @@ export default class MapsView extends React.Component {
               return {
                 riskID: countID,
                 dislike: 0,
-                like: 0,
+                like: 1,
                 owner: '-',
                 coords: res.พิกัด,
                 detail: res.รายละเอียด,
