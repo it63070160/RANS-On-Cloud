@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { SearchBar } from 'react-native-elements';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
-import db from '../database/firebaseDB';
-import { collection, query, getDocs, orderBy, updateDoc, doc, getDoc } from "firebase/firestore";
 import { Cache } from "react-native-cache";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HeaderButtons, Item } from "react-navigation-header-buttons";
@@ -75,31 +73,12 @@ export default function ManageRisk({ navigation, route }) {
     }
   }
 
-  // function GetData ดึงข้อมูลจาก Firebase Database
-  // async function GetData() {
-  //   const q = query(collection(db, "rans-database"), orderBy("_id", 'asc'));
-  //   const querySnapshot = await getDocs(q);
-  //   const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
-  //   setData(d)
-  //   const startPage = d.filter((item, index)=>index>=start && index<start+5) // ใช้ในการกำหนดว่าหนึ่งหน้ามีกี่ข้อมูล แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
-  //   setPageData(startPage) // เก็บที่ filter ออกมา
-  //   if(start==1){
-  //     setStart(start+5)
-  //   }
-  //   setRefresh(false)
-  // }
-
   async function onFocusGetData() {
-    // const q = query(collection(db, "rans-database"), orderBy("_id", 'asc'));
-    // const querySnapshot = await getDocs(q);
-    // const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
-    // setData(d)
     await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
       .then(response=>{
         response.data.datas.sort((a,b) => a.riskID - b.riskID)
         setData(response.data.datas)
         if(searching){
-          // const searchData = response.data.datas.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0))
           const searchData = response.data.datas.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID)
           setPageData(searchData)
         }else{
@@ -131,8 +110,6 @@ export default function ManageRisk({ navigation, route }) {
 
   // function GetDataByID ดึงข้อมูลจาก Firebase Database ที่มี id ตาม parameter
   async function GetDataByID(key) {
-    // const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    // const querySnapshot = await getDoc(q);
     var d = {};
     const params = {
       "riskID": key
@@ -178,7 +155,6 @@ export default function ManageRisk({ navigation, route }) {
   // เมื่อผู้ใช้กดปุ่มถัดไป
   function NextPage(){
     if(searching){ // ถ้าผู้ใช้ค้นหาอยู่จะแสดงเฉพาะข้อมูลที่มีส่วนเกี่ยวข้องกับที่ค้นหา
-      // const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0)) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
       const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
       const searchPage = searchData.filter((item, index)=>index>=searchStart && index<searchStart+5) // แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
       if(searchData.length%5!=0){
@@ -331,17 +307,6 @@ export default function ManageRisk({ navigation, route }) {
           alert("ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
           console.error("Insert Error:", error)
         })
-      // const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-      // const querySnapshot = await getDoc(q);
-      // if(querySnapshot.exists){
-      //   await updateDoc(doc(db, "rans-database", key), {
-      //     รายละเอียด: editText
-      //   }).then(
-      //     console.log("Detail Updated")
-      //   )
-      // }else{
-      //   alert("ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
-      // }
       setRefresh(false)
       onFocusGetData()
     }
@@ -568,7 +533,7 @@ export default function ManageRisk({ navigation, route }) {
             <TouchableOpacity style={styles.modalCloseButton} onPress={()=>{setAddPress(false)}}>
               <AntDesign name="close" size={24} color="black" />
             </TouchableOpacity>
-            <AddRisk closeAddModal={closeAddModal} handleAdd={handleAdd} refreshData={GetData}/>
+            <AddRisk closeAddModal={closeAddModal} handleAdd={handleAdd} refreshData={onFocusGetData}/>
           </View>
         </View>
       </Modal>

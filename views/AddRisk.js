@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import db from '../database/firebaseDB';
-import { collection, getDocs, addDoc, onSnapshot} from "firebase/firestore";
 import { TextInput } from 'react-native-gesture-handler';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -67,7 +65,7 @@ export default function AddRisk(props) {
   }
 
   function findMaxID(){
-    return Math.max(...data.map(o => o.riskID)) + 1;
+    return Math.max(...data.map(o => o.riskID));
   }
 
   // เมื่อผู้ใช้กดเพิ่ม
@@ -91,7 +89,6 @@ export default function AddRisk(props) {
       props.closeAddModal()
       setvalidateDetailFail(false)
       setvalidatePosFail(false)
-      let maxID = findMaxID()
 
       const options = { language: 'th' };
       Location.reverseGeocodeAsync({ latitude: parseFloat((Math.round(marker.latitude*1000000)/1000000).toFixed(6)), longitude: parseFloat((Math.round(marker.longitude*1000000)/1000000).toFixed(6)) }, options)
@@ -100,9 +97,9 @@ export default function AddRisk(props) {
           let district_th = district[district_en]
 
           const payload = {
-            riskID: maxID,
+            riskID: findMaxID()+1,
             dislike: 0,
-            like: 0,
+            like: 1,
             owner: deviceId,
             coords: (Math.round(marker.latitude*1000000)/1000000).toFixed(6)+", "+(Math.round(marker.longitude*1000000)/1000000).toFixed(6),
             detail: detail,
@@ -111,9 +108,12 @@ export default function AddRisk(props) {
 
           try{
             axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', payload)
-              .then(response => {
+              .then(async response => {
                 console.log('Data items successfully inserted:', response.data);
                 props.refreshData()
+                let likeCache = await cache.get('like')==undefined?[]:await cache.get('like');
+                likeCache.push(payload.riskID)
+                await cache.set('like', likeCache)
               })
               .catch(error => {
                 console.error("Insert Error:", error)
@@ -155,19 +155,6 @@ export default function AddRisk(props) {
     }
   }
 
-  // ดึงข้อมูลแบบ Real time
-  const getCollection = (querySnapshot) => {
-    const all_data = [];
-    querySnapshot.forEach((res) => {
-      const { _id, dislike, like, owner, coords, detail, area } = res.data();
-      all_data.push({
-        key: res.id,
-        _id, dislike, like, owner, coords, detail, area
-      });
-    });
-    setData(all_data)
-  };
-
   useEffect(()=>{
     const getStartLocation = async () => { // จับตำแหน่งของผู้ใช้
         let location = await Location.getCurrentPositionAsync({});
@@ -175,7 +162,6 @@ export default function AddRisk(props) {
     }
     getStartLocation();
     getAllData();
-    // const unsub = onSnapshot(collection(db, "rans-database"), getCollection);
     GetDeviceID();
   }, [])
 
