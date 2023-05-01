@@ -5,18 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/R_A_N_S.png",
-          "color": "#ffffff"
-        }
-      ]
-    ],
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/R_A_N_S.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
