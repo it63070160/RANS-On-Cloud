@@ -66,7 +66,7 @@ export default function AddRisk(props) {
   }
 
   function findMaxID(){
-    return data.sort((a,b) => a.riskID - b.riskID).pop().riskID
+    return Math.max(...data.map(o => o.riskID)) + 1;
   }
 
   // เมื่อผู้ใช้กดเพิ่ม
@@ -92,7 +92,7 @@ export default function AddRisk(props) {
       setvalidatePosFail(false)
       let maxID = findMaxID()
       const payload = {
-        riskID: maxID+1,
+        riskID: maxID,
         dislike: 0,
         like: 0,
         owner: deviceId,

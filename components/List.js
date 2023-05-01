@@ -18,7 +18,7 @@ export default function List(props) {
           { useNativeDriver: true }
         )}
         data={data}
-        keyExtractor={(item) => 'id'+item._id}
+        keyExtractor={(item) => 'id'+item.riskID}
         renderItem={({ item, index }) => {
           const inputRange = [
             -1,
@@ -45,8 +45,8 @@ export default function List(props) {
             >
                 <Text style={{width: '7%', textAlign: 'center'}}>{index + 1}</Text>
                 <View style={{width: '1%', borderRightColor: 'black', borderRightWidth: 1, height: '65%'}}></View>
-                <Text style={{width: '50%', paddingLeft: '5%'}}>{item.รายละเอียด}</Text>
-                <Text style={{width: '20%', textAlign: 'center'}}>{item.สำนักงานเขต}</Text>
+                <Text style={{width: '50%', paddingLeft: '5%'}}>{item.detail}</Text>
+                <Text style={{width: '20%', textAlign: 'center'}}>{item.area}</Text>
                 <Text style={{width: '10%', textAlign: 'center'}}><AntDesign name="like2" size={24} color="black" />  {item.like}</Text>
                 <Text style={{width: '10%', textAlign: 'center'}}><AntDesign name="dislike2" size={24} color="black" />  {item.dislike}</Text>
             </Animated.View>

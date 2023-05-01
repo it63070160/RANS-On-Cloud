@@ -76,6 +76,21 @@ export default function StatisticView() {
 
     }
 
+    async function getAllData(){
+      try{
+        await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
+          .then(response=>{
+            setListData(response.data.datas)
+            formatGraph(groupData(response.data.datas, 'area'))
+          })
+          .catch(error=>{
+            console.error(error)
+          })
+      }catch(err){
+        console.error(err)
+      }
+    }
+
     function groupData(array, key){
       let group = groupBy(array, key)
       let g = Object.entries(group);
@@ -150,9 +165,10 @@ export default function StatisticView() {
 
     useEffect(()=>{
       // getData();
-      const unsub = onSnapshot(collection(db, 'rans-database'), getData, (error) => {
-        console.log(error)
-      });
+      getAllData();
+      // const unsub = onSnapshot(collection(db, 'rans-database'), getData, (error) => {
+      //   console.log(error)
+      // });
     }, [])
 
     return (

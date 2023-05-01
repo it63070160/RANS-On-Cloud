@@ -1,11 +1,9 @@
-import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Modal, Pressable, TextInput} from "react-native";
-import { useEffect, useState, useRef } from 'react';
-import db from "../database/firebaseDB";
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Modal, Pressable} from "react-native";
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { AntDesign } from "@expo/vector-icons";
 import { ScrollView } from "react-native";
-import { collection, addDoc, getDocs, onSnapshot, where, query, deleteDoc, getDoc, doc } from "firebase/firestore";
 import axios from "axios";
-import { encrypt, decrypt } from "../components/Encryption";
 
 export default function RiskListView({route}){
 
@@ -13,23 +11,25 @@ export default function RiskListView({route}){
     let [listDataSort, setListDataSort] = useState([])
     let [modalVisible, setModalVisible] = useState(false);
 
-    function getData(querySnapshot) {
-
-        let dataFromFirebase = []
-        querySnapshot.forEach((res) => {
-            dataFromFirebase.push({key: res.id, ...res.data()});
-        })
-
-        setListData(dataFromFirebase)
-
-        formatList(dataFromFirebase)
-
+    async function getAllData(){
+        try{
+          await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
+            .then(response=>{
+              setListData(response.data.datas)
+              formatList(response.data.datas)
+            })
+            .catch(error=>{
+              console.error(error)
+            })
+        }catch(err){
+          console.error(err)
+        }
     }
 
     function formatList(d){
         function sortName(a, b){
-            if (a.สำนักงานเขต > b.สำนักงานเขต){ return 1; }
-            if (b.สำนักงานเขต > a.สำนักงานเขต){ return -1; }
+            if (a.area > b.area){ return 1; }
+            if (b.area > a.area){ return -1; }
             return 0;
         }
 
@@ -48,14 +48,14 @@ export default function RiskListView({route}){
         return (<View style={styles.listBox} key={'risk'+index}>
                     <Text style={{width: '10%', textAlign: 'center'}}>{index + 1}</Text>
                     <View style={{width: '1%', borderRightColor: 'black', borderRightWidth: 1, height: '100%'}}></View>
-                    <Text style={{width: '50%', paddingLeft: '5%'}}>{value.รายละเอียด + '\n' + 'เขต: ' + value.สำนักงานเขต}</Text>
+                    <Text style={{width: '50%', paddingLeft: '5%'}}>{value.detail + '\n' + 'เขต: ' + value.area}</Text>
                     <View style={{width: '20%', paddingLeft: '5%'}}>
                         <Text style={{width: '100%', textAlign: 'center'}}>
                         {'Fake rate\n'}{value.like+value.dislike != 0 && !isNaN(value.like+value.dislike)?(value.dislike/(value.like + value.dislike)*100).toFixed(2):(0.00+0.00).toFixed(2)}{' %'}
                         </Text>
                     </View>
                     <View style={{width: '15%', paddingLeft: '5%'}}>
-                        <TouchableOpacity style={styles.deleteButton} onPress={() => { deleteRisk(value, index) } }>
+                        <TouchableOpacity style={styles.deleteButton} onPress={() => { deleteRisk(value) } }>
                             <AntDesign name="close" size={24} color="black" />
                         </TouchableOpacity>
                     </View>
@@ -65,87 +65,131 @@ export default function RiskListView({route}){
     async function addRiskFromAPI(){
         let data
         let data2
-        let q = query(collection(db, "rans-database"), where("_id", "<=", 126))
-        let u = await getDocs(q)
-
-        if (u.docs.length != 0){
-            setModalVisible(true)
+        try{
+            await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
+                .then(async response=>{
+                    if(response.data.datas.filter((value)=>value.riskID<=126).length != 0){
+                        setModalVisible(true)
+                    }
+                    else{
+                        try{
+                            // ดึงข้อมูลจาก API
+                            // let nextLink
+                            // await axios.get('https://data.bangkok.go.th/api/3/action/datastore_search?resource_id=6cc7a43f-52b3-4381-9a8f-2b8a35c3174a')
+                            //         .then(response=>{
+                            //           data = response.data.result.records
+                            //           nextLink = 'https://data.bangkok.go.th' + response.data.result._links.next
+                            //         })
+                            //         .catch(error=>{
+                            //           console.error(error)
+                            //         })
+                            // await axios.get(nextLink)
+                            //         .then(response => {
+                            //             data2 = response.data.result.records
+                            //         })
+                            //         .catch(error=>{
+                            //             console.error(error)
+                            //         })
+                            // data = data.concat(data2)
+            
+                            // // ดึงข้อมูลจากไฟล์ json หากเว็บ api ล่ม
+                            const customData = require('../assets/RiskArea.json')
+                            const customData2 = require('../assets/RiskArea2.json')
+                            data = customData.result.records
+                            data2 = customData2.result.records
+                            data = data.concat(data2)
+                            for (let i=0; i<data.length;i++){
+                                const payload = {
+                                    riskID: data[i]._id,
+                                    dislike: 0,
+                                    like: 0,
+                                    owner: '-',
+                                    coords: data[i].พิกัด,
+                                    detail: data[i].รายละเอียด,
+                                    area: data[i].สำนักงานเขต
+                                }
+                                try{
+                                    await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', payload)
+                                        .then(response => {
+                                            console.log('Data items successfully inserted:', response.data);
+                                        })
+                                        .catch(error => {
+                                            console.error("Insert Error:", error)
+                                        })
+                                }catch(err){
+                                    console.error(err)
+                                }
+                            }
+                        }catch(err){
+                            console.error(err)
+                        }
+                        try{
+                            getAllData();
+                        }
+                        catch(error){
+                        }
+                    }
+                })
+                .catch(error=>{
+                    console.error(error)
+                })
+        }catch(err){
+            console.error(err)
         }
-        else{
-            try{
-                // ดึงข้อมูลจาก API
-                let nextLink
-                await axios.get('https://data.bangkok.go.th/api/3/action/datastore_search?resource_id=6cc7a43f-52b3-4381-9a8f-2b8a35c3174a')
-                        .then(response=>{
-                          data = response.data.result.records
-                          nextLink = 'https://data.bangkok.go.th' + response.data.result._links.next
-                        })
-                        .catch(error=>{
-                          console.error(error)
-                        })
-                await axios.get(nextLink)
-                        .then(response => {
-                            data2 = response.data.result.records
-                        })
-                        .catch(error=>{
-                            console.error(error)
-                        })
-                data = data.concat(data2)
-
-                // // ดึงข้อมูลจากไฟล์ json หากเว็บ api ล่ม
-                // const customData = require('../assets/RiskArea.json')
-                // const customData2 = require('../assets/RiskArea2.json')
-                // data = customData.result.records
-                // data2 = customData2.result.records
-                // data = data.concat(data2)
-
-                // เอาข้อมูลจาก api ใส่ firebase
-                let docRef;
-                for (let i=0; i<data.length;i++){
-                  docRef = await addDoc(collection(db, "rans-database"), {
-                    _id: data[i]._id,
-                    รายละเอียด: data[i].รายละเอียด,
-                    สำนักงานเขต: data[i].สำนักงานเขต,
-                    พิกัด: data[i].พิกัด,
-                    like: 1,
-                    dislike: 0,
-                    owner: '-'
-                  });
-                console.log("Document written with ID: ", docRef.id);
-                }
-            }catch(err){
-                console.error(err)
-            }
-        }
-
     }
 
     async function removeAPIRisk(){
-        let q = query(collection(db, "rans-database"), where("_id", "<=", 126))
-        let u = await getDocs(q)
-
-        u.docs.forEach((t) => {
-            deleteDoc(t.ref)
-        })
-        console.log('deleted')
         try{
-            getData();
+            await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas/apiRisk')
+                .then(response=>{
+                    response.data.datas.forEach(async (res)=>{
+                        const payload = {
+                            riskID: res.riskID
+                        }
+                        await axios.delete('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', { data: payload })
+                            .then(response => {
+                                console.log('Data items successfully delete:', response.data);
+                            })
+                            .catch(error => {
+                                console.error("Delete Error:", error)
+                            })
+                    })
+                })
+                .catch(error=>{
+                    console.error(error)
+                })
+            console.log('deleted')
+        }catch(err){
+            console.error(err)
+        }
+        try{
+            getAllData();
         }
         catch(error){
         }
     }
 
-    async function deleteRisk(select, index){
-        const q = doc(db, "rans-database", select.key);
-        const querySnapshot = await getDoc(q);
-        if(querySnapshot.exists){
-            await deleteDoc(doc(db, "rans-database", select.key))
-            .then(()=>{
-                console.log('Delete Risk ID: ' + select._id + " | " + select.key);
-                let splicelist = listDataSort;
-                splicelist.splice(index, 1);
-                setListDataSort(splicelist);
+    async function deleteRisk(select){
+        var d = {};
+        const params = {
+            "riskID": select.riskID
+        }
+        await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', {params})
+            .then(response => {
+                d = response.data
             })
+            .catch(error=>{
+                console.error(error)
+            })
+        if(d){
+            await axios.delete('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', { data: {riskID: d.riskID} })
+                .then(response => {
+                    console.log('Data items successfully delete:', response.data);
+                    getAllData()
+                })
+                .catch(error => {
+                    console.error("Delete Error:", error)
+                })
         }else{
             alert("ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
         }
@@ -177,10 +221,16 @@ export default function RiskListView({route}){
     }
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'rans-database'), getData, (error) => {
-            console.log(error)
-          });
+        getAllData()
     }, [])
+
+    useFocusEffect(
+        useCallback(() => {
+            getAllData()
+            return () => {
+            };
+        }, [])
+    );
 
     return (
         <View style={styles.container}>

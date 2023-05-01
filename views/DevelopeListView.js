@@ -1,11 +1,9 @@
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Modal, Pressable, TextInput} from "react-native";
-import { useEffect, useState, useRef } from 'react';
-import db from "../database/firebaseDB";
+import { useEffect, useState } from 'react';
 import { AntDesign } from "@expo/vector-icons";
 import { ScrollView } from "react-native";
-import { collection, addDoc, getDocs, onSnapshot, where, query, deleteDoc } from "firebase/firestore";
 import axios from "axios";
-import { encrypt, decrypt } from "../components/Encryption";
+import { encrypt } from "../components/Encryption";
 
 export default function DevelopeListView({route}){
 
@@ -15,14 +13,18 @@ export default function DevelopeListView({route}){
     let [inputId, setInputId] = useState('')
     let [validateDetailFail, setValidateDetailFail] = useState(false)
 
-    function getDev(querySnapshot) {
-
-        let dataFromFirebase = []
-        querySnapshot.forEach((res) => {
-          dataFromFirebase.push({'name' : res.data().name, 'id' : res.data().id, 'key': res.data().key});
-        })
-
-        formatDevs(dataFromFirebase)
+    async function getAllDev(){
+        try{
+            await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/devs')
+                .then(response=>{
+                    formatDevs(response.data.datas)
+                })
+                .catch(error=>{
+                    console.error(error)
+                })
+        }catch(err){
+            console.error(err)
+        }
     }
 
     function formatDevs(d){
@@ -50,7 +52,7 @@ export default function DevelopeListView({route}){
                     <Text style={{width: '69%', paddingLeft: '5%'}}>{value.name} {value.key==route.params.params.key?'(you)':''} {'\nID : ' + value.key}</Text>
                     <View style={{width: '20%', paddingRight: '5%'}}>
                         <TouchableOpacity style={[styles.deleteButton, {opacity:value.key==route.params.params.key?0.3:1}]} 
-                            onPress={() => { deleteDev(value, index) }} 
+                            onPress={() => { deleteDev(value) }} 
                             disabled={value.key==route.params.params.key}
                             >
                             <AntDesign name="deleteuser" size={24} color="black" />
@@ -69,17 +71,27 @@ export default function DevelopeListView({route}){
         }
         else{
             try{
-                let docRef
-                docRef = await addDoc(collection(db, "rans-dev-database"), {
-                    id: encrypt(id),
+                const payload = {
                     key: Math.max(...devs.map(o => o.key)) + 1,
-                    name: name 
-                });
+                    id: encrypt(id),
+                    name: name,
+                }
+                try{
+                    await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/dev', payload)
+                        .then(response => {
+                            console.log('Data items successfully inserted:', response.data);
+                        })
+                        .catch(error => {
+                            console.error("Insert Error:", error)
+                        })
+                }catch(err){
+                    console.error(err)
+                }
                 setInputId('')
                 setInputName('')
                 setValidateDetailFail(false)
                 setModalAddDevVisible(false)
-                // getDev();
+                getAllDev();
             }
             catch(error){
                 console.error(error)
@@ -87,17 +99,18 @@ export default function DevelopeListView({route}){
         }
     }
 
-    async function deleteDev(select, index){
-        let q = query(collection(db, "rans-dev-database"), where("key", "==", select.key))
-        let u = await getDocs(q)
-
-        u.docs.forEach((t) => {
-            deleteDoc(t.ref)
-        })
-
+    async function deleteDev(select){
+        await axios.delete('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/dev', { data: {key: select.key} })
+            .then(response => {
+                console.log('Data items successfully delete:', response.data);
+                getAllData()
+            })
+            .catch(error => {
+                console.error("Delete Error:", error)
+            })
         console.log('Delete Dev: ' + select.name)
         try{
-            getDev();
+            getAllDev();
         }
         catch(error){}
     }
@@ -139,10 +152,7 @@ export default function DevelopeListView({route}){
     }
 
     useEffect(() => {
-        // checkDevId();
-        const unsub = onSnapshot(collection(db, 'rans-dev-database'), getDev, (error) => {
-            console.log(error)
-          });
+        getAllDev()
     }, [])
 
     return (

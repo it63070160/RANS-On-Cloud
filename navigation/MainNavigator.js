@@ -17,11 +17,9 @@ import RiskListView from '../views/RiskListView';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 
-import db from '../database/firebaseDB';
-import { collection, onSnapshot } from "firebase/firestore";
+import axios from 'axios';
 
 import { decrypt } from '../components/Encryption';
-import { RotateInUpLeft } from 'react-native-reanimated';
 
 const Drawer = createDrawerNavigator();
 const BottomTab = createBottomTabNavigator();
@@ -106,22 +104,25 @@ export default function MainNavigator(){
             setObj(ob)
         }
     }
-
-    function getData(querySnapshot) {
-
-        let dataFromFirebase = []
-        querySnapshot.forEach((res) => {
-          dataFromFirebase.push({
-            'name' : res.data().name,
-            'id' : decrypt(res.data().id),
-            'key' : res.data().key
-          });
-        })
-
-        setIdList(dataFromFirebase)
-        
-    }
     
+    async function getAllData(){
+        try{
+          await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/devs')
+            .then(response=>{
+                let dataFromFirebase = []
+                response.data.datas.forEach((res)=>{
+                    dataFromFirebase.push({ ...res, 'id': decrypt(res.id) });
+                })
+                setIdList(dataFromFirebase)
+            })
+            .catch(error=>{
+                console.error(error)
+            })
+        }catch(err){
+          console.error(err)
+        }
+    }
+
     useEffect(()=>{
         checkDevId();
     }, [checkDevId, isDev, obj])
@@ -129,9 +130,7 @@ export default function MainNavigator(){
     
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'rans-dev-database'), getData, (error) => {
-            console.log(error)
-          });
+        getAllData()
     }, [])
 
     return(
