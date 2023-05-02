@@ -582,7 +582,7 @@ export default function ManageRisk({ navigation, route }) {
   );
 
   return (
-    <ScrollView stickyHeaderIndices={[2]} style={[styles.container, {backgroundColor:detailVisible?'rgba(0,0,0,0.3)':'rgba(255,255,255,1)'}]}>
+    <View stickyHeaderIndices={[2]} style={[styles.container, {backgroundColor:detailVisible?'rgba(0,0,0,0.3)':'rgba(255,255,255,1)'}]}>
       <LinearGradient
         colors={['#6096C595', '#94C2E885']}
         start={{ x: 0, y: 0 }}
@@ -639,7 +639,7 @@ export default function ManageRisk({ navigation, route }) {
           <Text>{'>'}</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: '150%'
+    height: '100%'
   },
   backgroundRisk: {
     borderRadius: 5,
