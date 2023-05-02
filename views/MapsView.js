@@ -6,8 +6,6 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as TaskManager from "expo-task-manager" // จัดการ task ตอน tracking
 import * as Location from 'expo-location'; // track user location
 import { getPreciseDistance } from 'geolib'; // Calculate Distrance between 2 locations
-import db from '../database/firebaseDB'; // Database
-import { collection, getDoc, onSnapshot, updateDoc, doc } from "firebase/firestore"; // firebase
 import { Cache } from 'react-native-cache'; // cache
 import AsyncStorage from '@react-native-async-storage/async-storage'; // cache storage
 import AddRisk from './AddRisk'; // Add Risk View
@@ -44,9 +42,7 @@ export default class MapsView extends React.Component {
       apiData: [],
       fencing: [],
       fencingStartCoords: {},
-      listRiskArea: [],
       alreadyNotify: [],
-      notifyList: [],
       notifyCount: 0,
       delayTime: 0,
       position: {latitude: 13.736717, longitude: 100.523186},
@@ -58,8 +54,6 @@ export default class MapsView extends React.Component {
       loading: true,
       dark: false,
       follow: false,
-      myNotification: false,
-      expoPushToken: '',
     }
     this.closeAddModal = this.closeAddModal.bind(this)
     this.handleLightMode = this.handleLightMode.bind(this)
@@ -108,7 +102,7 @@ export default class MapsView extends React.Component {
           console.log("You've entered region:", region.identifier);
           const location = this.state.data.filter((value)=>value.riskID==region.identifier)[0]
           const distrance = getPreciseDistance(this.state.userCoords, {latitude: region.latitude, longitude: region.longitude})
-          this.notify(location.detail, distrance, region.identifier)
+          this.notify(location.detail, distrance, region.identifier, location.like)
           this.setState(prevState => {
             const newMyArray = [...prevState.alreadyNotify, region.identifier];
             return { alreadyNotify: newMyArray };
@@ -137,7 +131,6 @@ export default class MapsView extends React.Component {
       }
     });
 
-    this.subscription();
     this.darkMapStyle = [
       {
         "elementType": "geometry",
@@ -273,18 +266,17 @@ export default class MapsView extends React.Component {
       }
     ]
     this.defaultMapStyle = []
-    // this.unsub = onSnapshot(collection(db, "rans-database"), this.getCollection);
     this.requestPermissions();
-    this.GetPosition();
+    // this.GetPosition();
     this.getData();
     this.GetDeviceID();
     this.CheckLightMode();
   }
 
-  async notify(detail, distrance, riskID){
+  async notify(detail, distrance, riskID, like){
     const noti = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '❗ RANS : พบจุดเสี่ยงในระยะ ' + distrance + ' เมตร',
+        title: like>=75?'❗':like>=50?'⚠️':'🔔' + ' (' + distrance + ' m.) ' + like>=75?'มีจุดเสี่ยงอันตราย':like>=50?'โปรดระวังจุดเสี่ยง':'ระวังจุดเสี่ยง',
         body: "จุดเสี่ยง " + detail + " อยู่ในระยะ " + distrance + " เมตรจากคุณ",
         autoDismiss: true
       },
@@ -327,7 +319,7 @@ export default class MapsView extends React.Component {
             identifier: res.riskID.toString(),
             latitude: Number(res.coords.slice(0, res.coords.indexOf(","))),
             longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1)),
-            radius: res.like>=50?150:res.like>=25?100:50,
+            radius: res.like>=75?150:res.like>=50?100:50,
             notifyOnEnter: true,
             notifyOnExit: true
           })
@@ -356,7 +348,6 @@ export default class MapsView extends React.Component {
   }
 
   componentWillUnmount(){
-    // this.unsub();
     clearInterval(this.intervalId);
     this.setState({
       AlertMe: false
@@ -393,148 +384,6 @@ export default class MapsView extends React.Component {
     await AsyncStorage.setItem("ignoreList", JSON.stringify(ignoreList))
     await this.cache.set('ignoreID', ignoreList)
   }
-
-  subscription = () => {
-    const subRes = Notifications.addNotificationResponseReceivedListener(async response => {
-      console.log(response)
-      if(response.actionIdentifier == "LikeBtn"){
-        console.log(await this.cache.getAll())
-        let likeCache = await this.cache.get('like')==undefined?[]:await this.cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
-        let disLikeCache = await this.cache.get('dislike')==undefined?[]:await this.cache.get('dislike'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
-        if(likeCache.indexOf(response.notification.request.content.data.data.key)>=0 || disLikeCache.indexOf(response.notification.request.content.data.data.key)>=0){
-          const cantLikeNoti_ID = Notifications.scheduleNotificationAsync({
-            content: {
-              categoryIdentifier: "CantDo",
-              title: '❗ RANS : ไม่สามารถ Like ได้',
-              body: "คุณอาจจะ Like ไปแล้วหรือกำลัง Dislike อยู่"
-            },
-            trigger: null,
-          });
-        }else{
-          this.updateLike(response.notification.request.content.data.data.key)
-        }
-      }else if(response.actionIdentifier == "DislikeBtn"){
-        this.updateDislike(response.notification.request.content.data.data.key)
-      }else if(response.actionIdentifier == "DismissBtn"){
-        let ignoreList = []
-        let ignoreCache = await this.cache.get("ignoreID")==undefined?[]:await this.cache.get("ignoreID");
-        let likeCache = await this.cache.get('like')==undefined?[]:await this.cache.get('like');
-        let disLikeCache = await this.cache.get('dislike')==undefined?[]:await this.cache.get('dislike');
-        if(ignoreCache.length>0){
-          ignoreList = ignoreCache
-          let newlist = []
-          this.state.fencing.map((item)=>{
-            if(ignoreCache.indexOf(item.identifier)<0 && (likeCache.indexOf(item.identifier)<0 && disLikeCache.indexOf(item.identifier)<0)){
-              newlist.unshift(item.identifier)
-            }
-          })
-          if(newlist.length>1){
-            newlist.map((item)=>{
-              ignoreList.unshift(item)
-            })
-          }else{
-            newlist.map((item)=>{
-              ignoreList.unshift(item)
-            })
-          }
-        }else{
-          this.state.fencing.map((item)=>{
-            if(likeCache.indexOf(item.identifier)<0 && disLikeCache.indexOf(item.identifier)<0){
-              ignoreList.push(item.identifier)
-            }
-          })
-        }
-        await this.cache.set('ignoreID', ignoreList)
-      }
-      console.log(await this.cache.getAll())
-      Notifications.dismissNotificationAsync(response.notification.request.identifier)
-    });
-
-    return () => {
-      Notifications.removeNotificationSubscription(subRes);
-    };
-  }
-
-  async updateLike(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const likeData = {key: querySnapshot.id, ...querySnapshot.data()};
-    likeCache.push(key)
-    await updateDoc(doc(db, "rans-database", key), {
-      like: likeData.like+1
-    }).then(
-      console.log("Like Updated")
-    )
-    await this.cache.set('like', likeCache) // Update Cache
-  }
-
-  async updateDislike(key) {
-    const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-    const querySnapshot = await getDoc(q);
-    const dislikeData = {key: querySnapshot.id, ...querySnapshot.data()};
-    let likeCache = await this.cache.get('like')==undefined?[]:await this.cache.get('like');
-    let disLikeCache = await this.cache.get('dislike')==undefined?[]:await this.cache.get('dislike');
-    if(likeCache.indexOf(key)>=0 || disLikeCache.indexOf(key)>=0){
-      alert("Already Like or Dislike")
-      return false
-    }else{
-      disLikeCache.push(key)
-      await updateDoc(doc(db, "rans-database", key), {
-        dislike: dislikeData.like+1
-      }).then(
-        console.log("Dislike Updated")
-      )
-      await this.cache.set('dislike', disLikeCache)
-    }
-  }
-
-  // ดึงข้อมูลแบบ Real time
-  // getCollection = (querySnapshot) => {
-  //   const all_data = [];
-  //   const fencing_data = [];
-  //   querySnapshot.forEach((res) => {
-  //     const { _id, dislike, like, owner, coords, detail, area } = res.data();
-  //     all_data.push({
-  //       key: res.id,
-  //       _id, dislike, like, owner, coords, detail, area
-  //     });
-  //     var pdis = getPreciseDistance(
-  //       this.state.userCoords,
-  //       {latitude: Number(coords.slice(0, coords.indexOf(","))), longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1))}
-  //     );
-  //     if(pdis<=150){
-  //       fencing_data.push({
-  //         identifier: res.id,
-  //         latitude: Number(coords.slice(0, coords.indexOf(","))),
-  //         longitude: coords.indexOf(" ")>=0?Number(coords.slice(coords.indexOf(" "))):Number(coords.slice(coords.indexOf(",")+1)),
-  //         radius: like>=50?150:like>=25?100:50,
-  //         notifyOnEnter: true,
-  //         notifyOnExit: true
-  //       })
-  //     }
-  //   });
-  //   if(fencing_data.length != 0){
-  //     this.setState({
-  //       data: all_data,
-  //       fencing: fencing_data
-  //     });
-  //   }else{
-  //     this.setState({
-  //       data: all_data,
-  //       fencing: [
-  //         {
-  //           identifier: 'default',
-  //           latitude: 37.785834,
-  //           longitude: -122.406417,
-  //           radius: 10,
-  //           notifyOnEnter: true,
-  //           notifyOnExit: false,
-  //         }
-  //       ]
-  //     })
-  //   }
-  //   this.forceUpdate()
-  // };
 
   arraysEqual(arr1, arr2) {
     if (arr1.length !== arr2.length) {
@@ -647,7 +496,7 @@ export default class MapsView extends React.Component {
                 identifier: res.riskID.toString(),
                 latitude: Number(res.coords.slice(0, res.coords.indexOf(","))),
                 longitude: res.coords.indexOf(" ")>=0?Number(res.coords.slice(res.coords.indexOf(" "))):Number(res.coords.slice(res.coords.indexOf(",")+1)),
-                radius: res.like>=50?150:res.like>=25?100:50,
+                radius: res.like>=75?150:res.like>=50?100:50,
                 notifyOnEnter: true,
                 notifyOnExit: true
               })
@@ -703,7 +552,7 @@ export default class MapsView extends React.Component {
               return {
                 riskID: countID,
                 dislike: 0,
-                like: 1,
+                like: 30,
                 owner: '-',
                 coords: res.พิกัด,
                 detail: res.รายละเอียด,
@@ -869,7 +718,7 @@ export default class MapsView extends React.Component {
           onMapLoaded={()=>this.setState({loading:false})}
         >
           {this.state.data.map((item, index) => (
-            <Marker key={this.state.follow?`${item.riskID}${Date.now()}`:this.state.deviceId+index} pinColor={item.like >= 50 ? "red" : item.like >= 25 ? "yellow" : "green"} title={"จุดเสี่ยง" + (item.like >= 50 ? " (อันตราย)" : item.like >= 25 ? " (โปรดระวัง)" : "")} description={item.detail} coordinate={item.coords.indexOf(" ") >= 0 ? { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" "))) } : { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",") + 1)) }} />
+            <Marker key={this.state.follow?`${item.riskID}${Date.now()}`:this.state.deviceId+index} pinColor={item.like >= 75 ? "red" : item.like >= 50 ? "yellow" : "green"} title={"จุดเสี่ยง" + (item.like >= 75 ? " (อันตราย)" : item.like >= 50 ? " (โปรดระวัง)" : "")} description={item.detail} coordinate={item.coords.indexOf(" ") >= 0 ? { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" "))) } : { latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",") + 1)) }} />
           ))}
         </MapView>
       </View>

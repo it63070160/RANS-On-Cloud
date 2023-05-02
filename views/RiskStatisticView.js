@@ -1,8 +1,5 @@
-import { StyleSheet, View, Text, ActivityIndicator , ScrollView, TouchableOpacity, Animated, Easing } from "react-native";
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { Dimensions } from "react-native";
-import { collection, addDoc, getDocs, onSnapshot, where, query, deleteDoc } from "firebase/firestore";
-import db from "../database/firebaseDB";
+import { StyleSheet, View, Text, ActivityIndicator } from "react-native";
+import { useEffect, useState, useCallback } from 'react';
 import { AntDesign } from "@expo/vector-icons";
 import List from '../components/List';
 import axios from "axios";
@@ -14,20 +11,6 @@ export default function RiskStatisticView(){
     let [listData, setListData] = useState([])
 
     let [listDataSort, setListDataSort] = useState([])
-
-    // ดึงข้อมูล row จาก db -> collection
-    function getData(querySnapshot) {
-
-      let dataFromFirebase = []
-      querySnapshot.forEach((res) => {
-        dataFromFirebase.push(res.data());
-      })
-
-      setListData(dataFromFirebase)
-
-      formatData(dataFromFirebase)
-
-    }
 
     async function getAllData(){
       try{
@@ -76,12 +59,7 @@ export default function RiskStatisticView(){
     }
 
     useEffect(()=>{
-        // getList()
-        // getData();
         getAllData()
-        // const unsub = onSnapshot(collection(db, 'rans-database'), getData, (error) => {
-        //   console.log(error)
-        // });
       }, [])
 
       useFocusEffect(

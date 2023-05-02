@@ -1,8 +1,6 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native';
 import axios from 'axios'; // ดึง API
-import db from '../database/firebaseDB';
-import { collection, query, getDocs, updateDoc, doc, orderBy, getDoc} from "firebase/firestore";
 import { Cache } from 'react-native-cache'; // cache
 import AsyncStorage from '@react-native-async-storage/async-storage'; // cache storage
 import { AntDesign } from '@expo/vector-icons'; // Icon
@@ -16,7 +14,6 @@ function CheckFocusScreen(props) {
     useCallback(() => {
       props.refresh()
       props.getData();
-      // props.GetData();
       props.Check();
       return () => {
         props.reset();
@@ -34,7 +31,6 @@ export default class NotificationsView extends React.Component{
       AllNoti: [],
       refresh: false
     }
-    // this.GetData = this.GetData.bind(this);
     this.getData = this.getData.bind(this);
     this.CheckIgnoreRisk = this.CheckIgnoreRisk.bind(this)
     this.updateLike = this.updateLike.bind(this)
@@ -86,7 +82,6 @@ export default class NotificationsView extends React.Component{
           const sortList = []
           if(ignoreID!=undefined){
             ignoreID.map((item)=>{
-              // response.data.datas.filter((value)=>value.riskID==item)[0]
               response.data.datas.map((DBitem)=>{
                 if(item==DBitem.riskID){
                   sortList.push(DBitem)
@@ -108,28 +103,6 @@ export default class NotificationsView extends React.Component{
     }
   }
 
-  // async GetData () {
-  //   const q = query(collection(db, "rans-database"), orderBy("_id", "asc"));
-  //   const querySnapshot = await getDocs(q);
-  //   const d = querySnapshot.docs.map((d) => ({ key: d.id, ...d.data() }));
-  //   const ignoreID = await this.cache.get('ignoreID')
-  //   const sortList = []
-  //   if(ignoreID!=undefined){
-  //     ignoreID.map((item)=>{
-  //       d.map((DBitem)=>{
-  //         if(item==DBitem.key){
-  //           sortList.push(DBitem)
-  //         }
-  //       })
-  //     })
-  //   }
-  //   this.setState({
-  //     AllNoti: sortList,
-  //     data: d,
-  //     refresh: false
-  //   })
-  // }
-
   async CheckIgnoreRisk () {
     const ignoreID = await this.cache.get('ignoreID')
     let likeCache = await this.cache.get('like')
@@ -149,24 +122,6 @@ export default class NotificationsView extends React.Component{
       await this.cache.set('ignoreID', ignoreID)
     }
   }
-
-  // อัปเดตข้อมูลการถูกใจใน Firebase Database
-  // async updateLike(key) {
-  //   const q = doc(db, "rans-database", key); // หาตัวที่ ID ตรงกับ Parameter
-  //   const querySnapshot = await getDoc(q);
-  //   const likeData = {key: querySnapshot.id, ...querySnapshot.data()};
-  //   let likeCache = await this.cache.get('like'); // ไม่ใช้ State เพื่อให้อัปเดตง่าย
-  //   if(likeCache==undefined){
-  //     likeCache = []
-  //   }
-  //   likeCache.push(key)
-  //   await updateDoc(doc(db, "rans-database", key), {
-  //     like: likeData.like+1
-  //   }).then(
-  //     console.log("Like Updated")
-  //   )
-  //   await this.cache.set('like', likeCache) // Update Cache
-  // }
 
   async updateLike(key) {
     let likeData = {}
@@ -232,7 +187,6 @@ export default class NotificationsView extends React.Component{
         console.error("Insert Error:", error)
       })
     await this.cache.set('dislike', disLikeCache)
-    console.log(await this.cache.getAll())
   }
   
   async likeHandle (key, index) {
