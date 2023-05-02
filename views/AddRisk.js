@@ -70,9 +70,6 @@ export default function AddRisk(props) {
 
   // เมื่อผู้ใช้กดเพิ่ม
   async function handleAddPress(){
-    if(props.handleAdd){
-      props.handleAdd()
-    }
     if(detail == ""){ // Validate
       setvalidateDetailFail(true)
     }
@@ -86,6 +83,9 @@ export default function AddRisk(props) {
     }
     if(detail != "" && marker){ // Add
       props.closeAddModal()
+      if(props.handleAdd){
+        props.handleAdd()
+      }
       setvalidateDetailFail(false)
       setvalidatePosFail(false)
 
