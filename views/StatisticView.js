@@ -1,6 +1,4 @@
-import { StyleSheet, View, Text, ActivityIndicator , ScrollView, TouchableOpacity} from 'react-native';
-import db from '../database/firebaseDB';
-import { collection, addDoc, getDocs, onSnapshot, where, query, deleteDoc } from "firebase/firestore";
+import { StyleSheet, View, Text, ActivityIndicator , ScrollView } from 'react-native';
 import { Dimensions } from "react-native";
 import { useEffect, useState, useCallback } from 'react';
 // https://npm.io/package/react-native-animated-charts
@@ -63,20 +61,6 @@ export default function StatisticView() {
     //         console.error(err)
     //     }
     // }
-
-    // ดึงข้อมูล row จาก db -> collection
-    function getData(querySnapshot) {
-
-        let dataFromFirebase = []
-        querySnapshot.forEach((res) => {
-          dataFromFirebase.push(res.data());
-        })
-
-        setListData(dataFromFirebase)
-
-        formatGraph(groupData(dataFromFirebase, 'สำนักงานเขต'))
-
-    }
 
     async function getAllData(){
       try{

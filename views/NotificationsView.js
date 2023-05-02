@@ -217,7 +217,7 @@ export default class NotificationsView extends React.Component{
 
   render(){
     return(
-      <ScrollView style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
+      <View style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
       <LinearGradient
         colors={['#4c669f90', '#3b599850']}
         start={{ x: 0, y: 0 }}
@@ -227,7 +227,7 @@ export default class NotificationsView extends React.Component{
       <CheckFocusScreen getData={this.getData} Check={this.CheckIgnoreRisk} refresh={()=>{this.setState({refresh:true})}} reset={()=>{this.setState({AllNoti:[],data:[],refresh:false})}}/>
       {!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?
       this.state.AllNoti.map((item, index)=>(
-        <View style={styles.notiContainer} key={index}>
+        <ScrollView style={styles.notiContainer} key={index}>
           <LinearGradient
             colors={['#EFD6BC90', '#FFDAFA90']}
             start={{ x: 0, y: 0 }}
@@ -244,9 +244,9 @@ export default class NotificationsView extends React.Component{
               </TouchableOpacity>
             </View>
           </LinearGradient>
-        </View>
+        </ScrollView>
       )):<Text style={{alignSelf:'center'}}>No Notification</Text>:<ActivityIndicator style={styles.loading} color={'green'} size={'large'}/>}
-    </ScrollView>
+    </View>
   );
   }
 }
@@ -260,7 +260,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: '150%'
+    height: '100%'
+  },
+  backgroundRisk: {
+    margin: 10,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 10,
+    backgroundColor: "white",
   },
   loading: {
     position: 'absolute',
@@ -273,16 +286,6 @@ const styles = StyleSheet.create({
   },
   notiContainer: {
     margin: 10,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 10,
-    backgroundColor: "#FFF",
   },
   notiTitle: {
     fontWeight: 'bold',

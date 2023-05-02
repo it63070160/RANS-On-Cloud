@@ -14,6 +14,9 @@ import { encrypt } from '../components/Encryption'; // encrypt device id
 import * as Device from 'expo-device'; // get device id
 import * as Application from 'expo-application'; // get device id
 import * as Notifications from 'expo-notifications'; // Notifications
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs(['Warning: ...']); // Ignore log notification by message
+LogBox.ignoreAllLogs();//Ignore all log notifications
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -266,17 +269,17 @@ export default class MapsView extends React.Component {
       }
     ]
     this.defaultMapStyle = []
+    this.GetDeviceID();
     this.requestPermissions();
     // this.GetPosition();
     this.getData();
-    this.GetDeviceID();
     this.CheckLightMode();
   }
 
   async notify(detail, distrance, riskID, like){
     const noti = await Notifications.scheduleNotificationAsync({
       content: {
-        title: like>=75?'❗':like>=50?'⚠️':'🔔' + ' (' + distrance + ' m.) ' + like>=75?'มีจุดเสี่ยงอันตราย':like>=50?'โปรดระวังจุดเสี่ยง':'ระวังจุดเสี่ยง',
+        title: like>=75?'❗ (' + distrance + ' m.) มีจุดเสี่ยงอันตราย':like>=50?'⚠️ (' + distrance + ' m.) โปรดระวังจุดเสี่ยง':'🔔 (' + distrance + ' m.) ระวังจุดเสี่ยง',
         body: "จุดเสี่ยง " + detail + " อยู่ในระยะ " + distrance + " เมตรจากคุณ",
         autoDismiss: true
       },
@@ -444,17 +447,63 @@ export default class MapsView extends React.Component {
     }
   }
   
-  async requestPermissions () {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status == "granted") {
-      await Location.requestBackgroundPermissionsAsync();
+  // Start location tracking in foreground
+  async startForegroundUpdate() {
+    // Check if foreground permission is granted
+    const { granted } = await Location.getForegroundPermissionsAsync()
+    if (!granted) {
+      console.log("location tracking denied")
+      return
     }
-    let location = await Location.getCurrentPositionAsync({});
+
+    // Make sure that foreground location tracking is not running
+    foregroundSubscription?.remove()
+
+    // Start watching position in real-time
+    foregroundSubscription = await Location.watchPositionAsync(
+      {
+        // For better logs, we set the accuracy to the most sensitive option
+        accuracy: Location.Accuracy.BestForNavigation,
+        // distanceInterval: 5,
+        enableHighAccuracy:true,
+        timeInterval: 20000
+      },
+      location => {
+        set(location.coords, this.state.data)
+      }
+    )
+  }
+
+  // Stop location tracking in foreground
+  async stopForegroundUpdate() {
+    foregroundSubscription?.remove()
     this.setState({
-      position: location.coords,
-      userCoords: location.coords
+      AlertMe:false
     })
-    this.startBackgroundUpdate()
+  }
+
+  async requestPermissions () {
+    // if (Device.osName == 'iPadOS' || Device.osName == 'iOS'){
+    //   const foreground = await Location.requestForegroundPermissionsAsync()
+    //   if (foreground.granted) await Location.requestBackgroundPermissionsAsync()
+    //   let location = await Location.getCurrentPositionAsync({});
+    //   this.setState({
+    //     position: location.coords,
+    //     userCoords: location.coords
+    //   })
+    //   this.startForegroundUpdate()
+    // }else{
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status == "granted") {
+        await Location.requestBackgroundPermissionsAsync();
+      }
+      let location = await Location.getCurrentPositionAsync({});
+      this.setState({
+        position: location.coords,
+        userCoords: location.coords
+      })
+      this.startBackgroundUpdate()
+    // }
   }
   
   async trackUser() {
