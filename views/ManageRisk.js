@@ -12,6 +12,7 @@ import { encrypt, decrypt } from '../components/Encryption';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import axios from 'axios';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ManageRisk({ navigation, route }) {
   const [data, setData] = useState([]); // data เก็บข้อมูลจุดเสี่ยง
@@ -79,7 +80,7 @@ export default function ManageRisk({ navigation, route }) {
         response.data.datas.sort((a,b) => a.riskID - b.riskID)
         setData(response.data.datas)
         if(searching){
-          const searchData = response.data.datas.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID)
+          const searchData = data.filter((item)=>( item.detail && item.area && (item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0))).sort((a,b) => a.riskID - b.riskID)
           setPageData(searchData)
         }else{
           if(start==1){
@@ -155,7 +156,7 @@ export default function ManageRisk({ navigation, route }) {
   // เมื่อผู้ใช้กดปุ่มถัดไป
   function NextPage(){
     if(searching){ // ถ้าผู้ใช้ค้นหาอยู่จะแสดงเฉพาะข้อมูลที่มีส่วนเกี่ยวข้องกับที่ค้นหา
-      const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
+      const searchData = data.filter((item)=>( item.detail && item.area && (item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0))).sort((a,b) => a.riskID - b.riskID) // เอาข้อมูลที่เกี่ยวข้องกับที่ผู้ใช้ค้นหาแล้วเรียง id
       const searchPage = searchData.filter((item, index)=>index>=searchStart && index<searchStart+5) // แยกข้อมูลที่ได้เป็นออกเป็น 5 ข้อมูล / หน้า
       if(searchData.length%5!=0){
         if((pageCount+1)>Math.floor(searchData.length/5)+1){ // ป้องกันการกดปุ่มเกิน
@@ -191,8 +192,7 @@ export default function ManageRisk({ navigation, route }) {
       return
     }
     if(searching){
-      const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => a.riskID - b.riskID)
-      // const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0))
+      const searchData = data.filter((item)=>( item.detail && item.area && (item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0))).sort((a,b) => a.riskID - b.riskID)
       const searchPage = searchData.filter((item, index)=>index>=searchStart-10 && index<searchStart-5) // -10 ให้กลับไปเป็น x ถึง x+5 อีกครั้ง
       setPageData(searchPage)
       setSearchStart(searchStart-5)
@@ -373,23 +373,27 @@ export default function ManageRisk({ navigation, route }) {
         .catch(error=>{
           console.error(error)
         })
-      let updateParams = {
-        riskID: key,
-        dislike: likeData.dislike,
-        like: likeData.like-1,
-        owner: likeData.owner,
-        coords: likeData.coords,
-        detail: likeData.detail,
-        area: likeData.area
+      if(likeData.like != 0){
+        let updateParams = {
+          riskID: key,
+          dislike: likeData.dislike,
+          like: likeData.like-1,
+          owner: likeData.owner,
+          coords: likeData.coords,
+          detail: likeData.detail,
+          area: likeData.area
+        }
+        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+          .then(response => {
+            console.log('Data items successfully inserted:', response.data);
+            likeCache.splice(likeCache.findIndex((item)=>item==key), 1)
+          })
+          .catch(error => {
+            console.error("Insert Error:", error)
+          })
+      }else{
+        likeCache.splice(likeCache.findIndex((item)=>item==key), 1)  
       }
-      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
-        .then(response => {
-          console.log('Data items successfully inserted:', response.data);
-          likeCache.splice(likeCache.findIndex((item)=>item==key), 1)
-        })
-        .catch(error => {
-          console.error("Insert Error:", error)
-        })
     }else{
       alert('Already Dislike')
     }
@@ -450,23 +454,27 @@ export default function ManageRisk({ navigation, route }) {
         .catch(error=>{
           console.error(error)
         })
-      let updateParams = {
-        riskID: key,
-        dislike: dislikeData.dislike-1,
-        like: dislikeData.like,
-        owner: dislikeData.owner,
-        coords: dislikeData.coords,
-        detail: dislikeData.detail,
-        area: dislikeData.area
+      if(dislikeData.dislike != 0){
+        let updateParams = {
+          riskID: key,
+          dislike: dislikeData.dislike-1,
+          like: dislikeData.like,
+          owner: dislikeData.owner,
+          coords: dislikeData.coords,
+          detail: dislikeData.detail,
+          area: dislikeData.area
+        }
+        await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
+          .then(response => {
+            console.log('Data items successfully inserted:', response.data);
+            disLikeCache.splice(disLikeCache.findIndex((item)=>item==key), 1)
+          })
+          .catch(error => {
+            console.error("Insert Error:", error)
+          })
+      }else{
+        disLikeCache.splice(disLikeCache.findIndex((item)=>item==key), 1)
       }
-      await axios.post('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/data', updateParams)
-        .then(response => {
-          console.log('Data items successfully inserted:', response.data);
-          disLikeCache.splice(disLikeCache.findIndex((item)=>item==key), 1)
-        })
-        .catch(error => {
-          console.error("Insert Error:", error)
-        })
     }else{
       alert('Already Like')
     }
@@ -489,13 +497,13 @@ export default function ManageRisk({ navigation, route }) {
   // เมื่อกดปุ่มค้นหา
   function Search(){
     setSearching(true)
-    const searchData = data.filter((item)=>(item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0)).sort((a,b) => (a.riskID > b.riskID) ? 1 : ((b.riskID > a.riskID) ? -1 : 0)) // ค้นหาและเรียง id
     if(search == ""){ // เมื่อไม่ได้ใส่อะไรในช่องค้นหาและกดค้นหาจะกลับไปที่เดิมหรืออยู่กับที่
       const startPage = data.filter((item, index)=>index>=start-5 && index<start)
       setSearching(false)
       setPageData(startPage)
       setPageCount(Math.floor((start)/5))
     }else{
+      const searchData = data.filter((item)=>( item.detail && item.area && (item.detail.indexOf(search)>=0 || item.area.indexOf(search)>=0))).sort((a,b) => a.riskID - b.riskID) //ค้นหาและเรียง id
       setPageCount(1) // เมื่อกดค้นหาจะแสดงข้อมูลที่ค้นหาได้เท่านั้น ทำให้หน้ากลับไปที่หน้า 1
       if(searchData.length>5){ // ถ้าข้อมูลที่ค้นหามากกว่า 5
         const startPage = searchData.filter((item, index)=>(index>=0 && index<5))
@@ -512,6 +520,7 @@ export default function ManageRisk({ navigation, route }) {
   function handleAdd(){
     setRefresh(true)
     onFocusGetData()
+    GetCache()
     setTimeout(()=>{
       setRefresh(false)
     }, 1000)
@@ -574,6 +583,12 @@ export default function ManageRisk({ navigation, route }) {
 
   return (
     <ScrollView stickyHeaderIndices={[2]} style={[styles.container, {backgroundColor:detailVisible?'rgba(0,0,0,0.3)':'rgba(255,255,255,1)'}]}>
+      <LinearGradient
+        colors={['#6096C595', '#94C2E885']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.background}
+      />
       <RisksDetail/>
       <AddNewRisk/>
       <View>
@@ -591,20 +606,27 @@ export default function ManageRisk({ navigation, route }) {
       {!refresh?
       pageData.map((item, index)=>(
       <View style={[styles.riskContainer, {opacity:detailVisible?0.3:1}]} key={index}>
-        <Text style={styles.riskTitle}>{item.detail.length>30?item.detail.slice(0, 30)+"...":item.detail}</Text>
-        <View style={styles.infoButtonContainer}>
-          <TouchableOpacity style={styles.infoButton} onPress={()=>{GetDataByID(item.riskID);showDetail()}}>
-            <AntDesign name="infocirlceo" size={24} color="black"/>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.riskButtonContainer}>
-          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateLike(item.riskID)}}>
-            <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==item.riskID).length>0?'#6BF38B':'black'}/>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateDislike(item.riskID)}}>
-            <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==item.riskID).length>0?'#F36C6C':'black'}/>
-          </TouchableOpacity>
-        </View>
+        <LinearGradient
+          colors={['#FFDAFA90', '#EFD6BC90']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.backgroundRisk}
+        >
+          <Text style={styles.riskTitle}>{item.detail.length>30?item.detail.slice(0, 30)+"...":item.detail}</Text>
+          <View style={styles.infoButtonContainer}>
+            <TouchableOpacity style={styles.infoButton} onPress={()=>{GetDataByID(item.riskID);showDetail()}}>
+              <AntDesign name="infocirlceo" size={24} color="black"/>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.riskButtonContainer}>
+            <TouchableOpacity style={styles.riskButton} onPress={()=>{updateLike(item.riskID)}}>
+              <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==item.riskID).length>0?'#6BF38B':'black'}/>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.riskButton} onPress={()=>{updateDislike(item.riskID)}}>
+              <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==item.riskID).length>0?'#F36C6C':'black'}/>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </View>
       ))
       :<ActivityIndicator color={'green'} size={'large'}/>}
@@ -624,6 +646,16 @@ export default function ManageRisk({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1
+  },
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '150%'
+  },
+  backgroundRisk: {
+    borderRadius: 5,
   },
   map: {
     width: '95%',
