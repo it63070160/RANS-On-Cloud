@@ -92,8 +92,15 @@ export default function AddRisk(props) {
       const options = { language: 'th' };
       Location.reverseGeocodeAsync({ latitude: parseFloat((Math.round(marker.latitude*1000000)/1000000).toFixed(6)), longitude: parseFloat((Math.round(marker.longitude*1000000)/1000000).toFixed(6)) }, options)
         .then((result) => {
-          let district_en = result[0].subregion
-          let district_th = district[district_en]
+          let district_en
+          let district_th
+          if (Device.osName == 'iPadOS' || Device.osName == 'iOS'){
+            district_en = result[0].subregion
+            district_th = district[district_en]
+          }else{
+            district_en = result[0].district.slice(result[0].district.indexOf("Khet ")+5, result[0].district.length)
+            district_th = district[district_en]
+          }
 
           const payload = {
             riskID: findMaxID()+1,
