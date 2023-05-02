@@ -245,7 +245,7 @@ export default class NotificationsView extends React.Component{
             </View>
           </LinearGradient>
         </ScrollView>
-      )):<Text style={{alignSelf:'center'}}>No Notification</Text>:<ActivityIndicator style={styles.loading} color={'green'} size={'large'}/>}
+      )):<Text style={{textAlign:'center', fontSize: 20, color: '#FF5543', marginTop: '50%'}}>No Notification</Text>:<ActivityIndicator style={styles.loading} color={'green'} size={'large'}/>}
     </View>
   );
   }

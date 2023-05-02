@@ -35,6 +35,8 @@ function CheckFocusScreen(props) {
   return <View />;
 }
 
+let foregroundSubscription = null
+
 export default class MapsView extends React.Component {
   intervalId = null;
   firstTimeMount = true;
@@ -302,9 +304,14 @@ export default class MapsView extends React.Component {
       this.setState({
         fencingStartCoords: this.state.userCoords
       });
-      await Location.startGeofencingAsync("LOCATION_GEOFENCE", this.state.fencing)
-        .then(() => console.log('Geofencing started'))
-        .catch(error => console.log(error));
+      if (Device.osName == 'iPadOS' || Device.osName == 'iOS'){
+        // this.calculatePreciseDistance(this.state.userCoords, this.state.data)
+      }
+      else{
+        await Location.startGeofencingAsync("LOCATION_GEOFENCE", this.state.fencing)
+          .then(() => console.log('Geofencing started'))
+          .catch(error => console.log(error));
+      }
     }
     if(getPreciseDistance(this.state.fencingStartCoords, this.state.userCoords) >= 150){
       console.log("Far away 150m Reload fencing")
@@ -400,7 +407,44 @@ export default class MapsView extends React.Component {
     }
   
     return true;
-  }  
+  }
+
+  // คำนวณระยะห่างระหว่างผู้ใช้กับจุดเสี่ยง
+  calculatePreciseDistance(position, data) {
+    var RiskArea = []
+    data.map((item)=>{
+      var pdis = getPreciseDistance(
+        position,
+        item.coords.indexOf(" ")>=0?{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(" ")))}:{latitude: Number(item.coords.slice(0, item.coords.indexOf(","))), longitude: Number(item.coords.slice(item.coords.indexOf(",")+1))}
+      );
+      if(pdis<=150){
+        RiskArea.push({
+          identifier: item.riskID.toString(),
+          latitude: Number(item.coords.slice(0, item.coords.indexOf(","))),
+          longitude: item.coords.indexOf(" ")>=0?Number(item.coords.slice(item.coords.indexOf(" "))):Number(item.coords.slice(item.coords.indexOf(",")+1)),
+          radius: item.like>=75?150:item.like>=50?100:50,
+          notifyOnEnter: true,
+          notifyOnExit: true
+        })
+      }
+    })
+    if(RiskArea.length>0){
+      RiskArea.forEach((res)=>{
+        if(this.state.alreadyNotify.indexOf(res.identifier) < 0){
+          const location = this.state.data.filter((value)=>value.riskID==res.identifier)[0]
+          const distrance = getPreciseDistance(this.state.userCoords, {latitude: res.latitude, longitude: res.longitude})
+          this.notify(location.detail, distrance, res.identifier, location.like)
+          this.setState(prevState => {
+            const newMyArray = [...prevState.alreadyNotify, res.identifier];
+            return { alreadyNotify: newMyArray };
+          });
+        }else{
+          return false;
+        }
+      })
+    }
+    this.forceUpdate();
+  };
 
   async startBackgroundUpdate () {
     // Don't track position if permission is not granted
@@ -465,11 +509,14 @@ export default class MapsView extends React.Component {
         // For better logs, we set the accuracy to the most sensitive option
         accuracy: Location.Accuracy.BestForNavigation,
         // distanceInterval: 5,
-        enableHighAccuracy:true,
-        timeInterval: 20000
+        enableHighAccuracy:true
       },
       location => {
-        set(location.coords, this.state.data)
+        this.calculatePreciseDistance(location.coords, this.state.data)
+        this.setState({
+          position: location.coords,
+          userCoords: location.coords
+        })
       }
     )
   }
@@ -483,16 +530,24 @@ export default class MapsView extends React.Component {
   }
 
   async requestPermissions () {
-    // if (Device.osName == 'iPadOS' || Device.osName == 'iOS'){
-    //   const foreground = await Location.requestForegroundPermissionsAsync()
-    //   if (foreground.granted) await Location.requestBackgroundPermissionsAsync()
-    //   let location = await Location.getCurrentPositionAsync({});
-    //   this.setState({
-    //     position: location.coords,
-    //     userCoords: location.coords
-    //   })
-    //   this.startForegroundUpdate()
-    // }else{
+    if (Device.osName == 'iPadOS' || Device.osName == 'iOS'){
+      await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: true,
+        },
+      });
+      const foreground = await Location.requestForegroundPermissionsAsync()
+      // if (foreground.granted) await Location.requestBackgroundPermissionsAsync()
+      let location = await Location.getCurrentPositionAsync({});
+      this.setState({
+        position: location.coords,
+        userCoords: location.coords
+      })
+      this.startForegroundUpdate()
+    }else{
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status == "granted") {
         await Location.requestBackgroundPermissionsAsync();
@@ -503,7 +558,7 @@ export default class MapsView extends React.Component {
         userCoords: location.coords
       })
       this.startBackgroundUpdate()
-    // }
+    }
   }
   
   async trackUser() {
