@@ -9,6 +9,7 @@ import { AntDesign } from '@expo/vector-icons'; // Icon
 import { HeaderButtons, Item } from "react-navigation-header-buttons"; // header button
 import CustomHeaderButton from '../components/CustomHeaderButton'; // header button
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 function CheckFocusScreen(props) {
   useFocusEffect(
@@ -262,20 +263,33 @@ export default class NotificationsView extends React.Component{
 
   render(){
     return(
-      <ScrollView style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center' }:{ flexGrow: 1, justifyContent: 'center' }}>
+      <ScrollView style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
+      <LinearGradient
+        colors={['#4c669f90', '#3b599850']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 3, y: 1 }}
+        style={styles.background}
+      />
       <CheckFocusScreen getData={this.getData} Check={this.CheckIgnoreRisk} refresh={()=>{this.setState({refresh:true})}} reset={()=>{this.setState({AllNoti:[],data:[],refresh:false})}}/>
       {!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?
       this.state.AllNoti.map((item, index)=>(
         <View style={styles.notiContainer} key={index}>
-          <Text style={styles.notiTitle}>{item.detail}</Text>
-          <View style={styles.notiButtonContainer} >
-            <TouchableOpacity style={[styles.notiButton, styles.greenButton]} onPress={()=>{this.likeHandle(item.riskID, index)}}>
-              <AntDesign name="like1" size={24} color={'black'} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.notiButton, styles.redButton]} onPress={()=>{this.dislikeHandle(item.riskID, index)}}>
-              <AntDesign name="dislike1" size={24} color={'black'} />
-            </TouchableOpacity>
-          </View>
+          <LinearGradient
+            colors={['#EFD6BC90', '#FFDAFA90']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.backgroundRisk}
+          >
+            <Text style={styles.notiTitle}>{item.detail}</Text>
+            <View style={styles.notiButtonContainer} >
+              <TouchableOpacity style={[styles.notiButton, styles.greenButton]} onPress={()=>{this.likeHandle(item.riskID, index)}}>
+                <AntDesign name="like1" size={24} color={'black'} />
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.notiButton, styles.redButton]} onPress={()=>{this.dislikeHandle(item.riskID, index)}}>
+                <AntDesign name="dislike1" size={24} color={'black'} />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
         </View>
       )):<Text style={{alignSelf:'center'}}>No Notification</Text>:<ActivityIndicator style={styles.loading} color={'green'} size={'large'}/>}
     </ScrollView>
@@ -286,6 +300,13 @@ export default class NotificationsView extends React.Component{
 const styles = StyleSheet.create({
   container: {
     flex: 1
+  },
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '150%'
   },
   loading: {
     position: 'absolute',

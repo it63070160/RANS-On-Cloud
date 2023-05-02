@@ -12,6 +12,7 @@ import { encrypt, decrypt } from '../components/Encryption';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import axios from 'axios';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ManageRisk({ navigation, route }) {
   const [data, setData] = useState([]); // data เก็บข้อมูลจุดเสี่ยง
@@ -574,6 +575,12 @@ export default function ManageRisk({ navigation, route }) {
 
   return (
     <ScrollView stickyHeaderIndices={[2]} style={[styles.container, {backgroundColor:detailVisible?'rgba(0,0,0,0.3)':'rgba(255,255,255,1)'}]}>
+      <LinearGradient
+        colors={['#6096C595', '#94C2E885']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.background}
+      />
       <RisksDetail/>
       <AddNewRisk/>
       <View>
@@ -591,20 +598,27 @@ export default function ManageRisk({ navigation, route }) {
       {!refresh?
       pageData.map((item, index)=>(
       <View style={[styles.riskContainer, {opacity:detailVisible?0.3:1}]} key={index}>
-        <Text style={styles.riskTitle}>{item.detail.length>30?item.detail.slice(0, 30)+"...":item.detail}</Text>
-        <View style={styles.infoButtonContainer}>
-          <TouchableOpacity style={styles.infoButton} onPress={()=>{GetDataByID(item.riskID);showDetail()}}>
-            <AntDesign name="infocirlceo" size={24} color="black"/>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.riskButtonContainer}>
-          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateLike(item.riskID)}}>
-            <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==item.riskID).length>0?'#6BF38B':'black'}/>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.riskButton} onPress={()=>{updateDislike(item.riskID)}}>
-            <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==item.riskID).length>0?'#F36C6C':'black'}/>
-          </TouchableOpacity>
-        </View>
+        <LinearGradient
+          colors={['#FFDAFA90', '#EFD6BC90']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.backgroundRisk}
+        >
+          <Text style={styles.riskTitle}>{item.detail.length>30?item.detail.slice(0, 30)+"...":item.detail}</Text>
+          <View style={styles.infoButtonContainer}>
+            <TouchableOpacity style={styles.infoButton} onPress={()=>{GetDataByID(item.riskID);showDetail()}}>
+              <AntDesign name="infocirlceo" size={24} color="black"/>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.riskButtonContainer}>
+            <TouchableOpacity style={styles.riskButton} onPress={()=>{updateLike(item.riskID)}}>
+              <AntDesign name="like1" size={24} color={alreadyLike==undefined?'black':alreadyLike.filter((likeitem)=>likeitem==item.riskID).length>0?'#6BF38B':'black'}/>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.riskButton} onPress={()=>{updateDislike(item.riskID)}}>
+              <AntDesign name="dislike1" size={24} color={alreadyDisLike==undefined?'black':alreadyDisLike.filter((dislikeitem)=>dislikeitem==item.riskID).length>0?'#F36C6C':'black'}/>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
       </View>
       ))
       :<ActivityIndicator color={'green'} size={'large'}/>}
@@ -624,6 +638,16 @@ export default function ManageRisk({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1
+  },
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '150%'
+  },
+  backgroundRisk: {
+    borderRadius: 5,
   },
   map: {
     width: '95%',

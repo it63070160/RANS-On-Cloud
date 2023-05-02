@@ -7,6 +7,7 @@ import { AntDesign } from "@expo/vector-icons";
 import List from '../components/List';
 import axios from "axios";
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function RiskStatisticView(){
 
@@ -93,10 +94,17 @@ export default function RiskStatisticView(){
 
     return (
         <View style={styles.container}>
+          <LinearGradient
+            colors={['#827EC790' , '#B133B070' , '#00D4FF' ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.background}
+          />
           {(listDataSort.length != 0)?
           // <ScrollView>
           //   {listDataSort.map(generateList)}
           // </ScrollView>
+          
           <List data={listDataSort} />
           :<ActivityIndicator color={'green'} size={'large'}></ActivityIndicator>
           }
@@ -111,6 +119,16 @@ const styles = StyleSheet.create({
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    background: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      height: '150%'
+    },
+    backgroundRisk: {
+      borderRadius: 5,
     },
     bgScroll: {
       width: "100%",
