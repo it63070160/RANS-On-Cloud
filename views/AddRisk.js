@@ -70,7 +70,6 @@ export default function AddRisk(props) {
 
   // เมื่อผู้ใช้กดเพิ่ม
   async function handleAddPress(){
-    // let likeCache = await cache.get('like');
     if(props.handleAdd){
       props.handleAdd()
     }
