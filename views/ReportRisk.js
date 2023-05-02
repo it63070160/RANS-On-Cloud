@@ -148,7 +148,7 @@ export default class ReportRisk extends Component{
                             </Text>
                         </View>
                         <View style={{width: '15%', paddingLeft: '5%'}}>
-                            <TouchableOpacity style={this.state.reportList.findIndex((item)=>value._id==item._id)<0?styles.reportButton:styles.removeButton} onPress={() => { this.addToReportList(value) } }>
+                            <TouchableOpacity style={this.state.reportList.findIndex((item)=>value.riskID==item.riskID)<0?styles.reportButton:styles.removeButton} onPress={() => { this.addToReportList(value) } }>
                                 <Ionicons name={this.state.reportList.findIndex((item)=>value.riskID==item.riskID)<0?"document-text-outline":"ios-remove-circle-outline"} size={24} color={'black'} />
                             </TouchableOpacity>
                         </View>
