@@ -83,9 +83,6 @@ export default function AddRisk(props) {
     }
     if(detail != "" && marker){ // Add
       props.closeAddModal()
-      if(props.handleAdd){
-        props.handleAdd()
-      }
       setvalidateDetailFail(false)
       setvalidatePosFail(false)
 
@@ -120,6 +117,9 @@ export default function AddRisk(props) {
                 let likeCache = await cache.get('like')==undefined?[]:await cache.get('like');
                 likeCache.push(payload.riskID)
                 await cache.set('like', likeCache)
+                if(props.handleAdd){
+                  props.handleAdd()
+                }
               })
               .catch(error => {
                 console.error("Insert Error:", error)
