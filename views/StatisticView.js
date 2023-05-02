@@ -8,6 +8,7 @@ import BarChart from '../components/BarChart';
 import { graphColor } from '../constants/colors'
 import { groupBy } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import axios from 'axios'; // ดึง API
 
@@ -185,6 +186,12 @@ export default function StatisticView() {
           {(listDataGroup.length != 0)?
           <View style={{width: '100%', height: '100%'}}>
             <View style={styles.graphContainer}>
+              <LinearGradient
+                colors={['#F4E0F5' , '#BAB7F090' , '#FEFFBC' ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.background}
+              />
               <Text style={styles.graphHeader}>{showTop} อันดับเขตที่มีจำนวนจุดเสี่ยงสูงที่สุดในกรุงเทพมหานคร</Text>
               <BarChart
                 labels={listDataGroupSort.map((value, index) => value.label + "\n (" + value.dataY + " จุด)").slice(0, showTop)}
@@ -195,6 +202,12 @@ export default function StatisticView() {
               />
             </View>
             <ScrollView style={styles.bgScroll}>
+              <LinearGradient
+                colors={['#F4E0F5' , '#BAB7F090' , '#FEFFBC' ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.background}
+              />
               {listDataGroupSort.map(generateList)}
             </ScrollView>
             {/* <View style={{backgroundColor: '#233212'}}>
@@ -217,8 +230,15 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
       alignItems: 'center',
     },
+    background: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      height: '150%'
+    },
     graphContainer: {
-      backgroundColor: '#D7CCC8',
+      // backgroundColor: '#D7CCC8',
       width: '100%',
       height: screenHeight*0.4,
     },
