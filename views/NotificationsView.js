@@ -79,6 +79,7 @@ export default class NotificationsView extends React.Component{
       await axios.get('https://rakmmhsjnd.execute-api.us-east-1.amazonaws.com/RANS/datas')
         .then(async response => {
           const ignoreID = await this.cache.get('ignoreID')
+          console.log(ignoreID)
           const sortList = []
           if(ignoreID!=undefined){
             ignoreID.map((item)=>{
