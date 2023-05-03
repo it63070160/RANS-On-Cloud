@@ -217,13 +217,13 @@ export default class NotificationsView extends React.Component{
 
   render(){
     return(
-      <View style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
-      <LinearGradient
-        colors={['#4c669f90', '#3b599850']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 3, y: 1 }}
-        style={styles.background}
-      />
+      <ScrollView style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
+//       <LinearGradient
+//         colors={['#4c669f90', '#3b599850']}
+//         start={{ x: 0, y: 0 }}
+//         end={{ x: 3, y: 1 }}
+//         style={styles.background}
+//       />
       <CheckFocusScreen getData={this.getData} Check={this.CheckIgnoreRisk} refresh={()=>{this.setState({refresh:true})}} reset={()=>{this.setState({AllNoti:[],data:[],refresh:false})}}/>
       {!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?
         this.state.AllNoti.map((item, index)=>(
@@ -246,7 +246,7 @@ export default class NotificationsView extends React.Component{
           </LinearGradient>
         </View>
       )):<Text style={{textAlign:'center', fontSize: 20, color: '#FF5543', marginTop: '50%'}}>No Notification</Text>:<ActivityIndicator style={styles.loading} color={'green'} size={'large'}/>}
-    </View>
+    </ScrollView>
   );
   }
 }
