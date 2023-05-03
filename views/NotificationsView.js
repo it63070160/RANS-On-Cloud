@@ -217,11 +217,11 @@ export default class NotificationsView extends React.Component{
 
   render(){
     return(
-      <View style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
+      <ScrollView style={styles.container} contentContainerStyle={!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?null:{ flexGrow: 1, justifyContent: 'center'}:{ flexGrow: 1, justifyContent: 'center'}}>
       <CheckFocusScreen getData={this.getData} Check={this.CheckIgnoreRisk} refresh={()=>{this.setState({refresh:true})}} reset={()=>{this.setState({AllNoti:[],data:[],refresh:false})}}/>
       {!this.state.refresh?(this.state.AllNoti.length>0 && this.state.AllNoti!=undefined)?
         this.state.AllNoti.map((item, index)=>(
-        <ScrollView style={styles.notiContainer} key={index}>
+        <View style={styles.notiContainer} key={index}>
           <LinearGradient
             colors={['#EFD6BC90', '#FFDAFA90']}
             start={{ x: 0, y: 0 }}
@@ -238,9 +238,9 @@ export default class NotificationsView extends React.Component{
               </TouchableOpacity>
             </View>
           </LinearGradient>
-        </ScrollView>
+        </View>
       )):<Text style={{textAlign:'center', fontSize: 20, color: '#FF5543', marginTop: '50%'}}>No Notification</Text>:<ActivityIndicator style={styles.loading} color={'green'} size={'large'}/>}
-    </View>
+    </ScrollView>
   );
   }
 }
