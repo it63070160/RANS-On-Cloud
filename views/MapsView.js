@@ -294,8 +294,8 @@ export default class MapsView extends React.Component {
     setTimeout(async ()=>{
       await Notifications.dismissNotificationAsync(noti)
       console.log(`Notification ${noti} cancelled`);
+      this.pushToNotificationPage(parseInt(riskID))
     }, (this.state.delayTime+(8000/this.state.notifyCount)))
-    this.pushToNotificationPage(parseInt(riskID))
     this.forceUpdate()
   }
 
