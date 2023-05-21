@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -160,7 +160,12 @@ export default function AddRisk(props) {
       setfocusPos({latitude: latitude, longitude: longitude})
     }
   }
-
+  
+  //hid keyboard when user click outside
+  const handleContainerPress = () => {
+    Keyboard.dismiss();
+  };
+  
   useEffect(()=>{
     const getStartLocation = async () => { // จับตำแหน่งของผู้ใช้
         let location = await Location.getCurrentPositionAsync({});
@@ -172,6 +177,7 @@ export default function AddRisk(props) {
   }, [])
 
   return (
+     <TouchableWithoutFeedback onPress={handleContainerPress}>
     <View>
       <View>
           <Text style={styles.InputHeader}>รายละเอียด <Text style={{color:"red", fontSize:validateDetailFail?12:0}}>* กรุณากรอกรายละเอียด</Text></Text>
@@ -207,6 +213,7 @@ export default function AddRisk(props) {
         </TouchableOpacity>
       </View>
     </View>
+  </TouchableWithoutFeedback>
   );
 }
 
