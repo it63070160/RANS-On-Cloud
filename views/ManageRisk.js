@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView, TextInput, Modal, ActivityIndicator,TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { SearchBar } from 'react-native-elements';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { Cache } from "react-native-cache";
@@ -216,6 +216,7 @@ export default function ManageRisk({ navigation, route }) {
             closeDetail();
           }}
         >
+         <TouchableWithoutFeedback onPress={handleContainerPress}>
           <View style={styles.centeredView}>
             <View style={styles.modalView}>
               <View style={styles.modalCloseButton}>
@@ -260,6 +261,7 @@ export default function ManageRisk({ navigation, route }) {
               :<ActivityIndicator color={'green'} size={'large'}/>}
             </View>
           </View>
+         </TouchableWithoutFeedback>        
         </Modal>
       );
     }
@@ -554,6 +556,12 @@ export default function ManageRisk({ navigation, route }) {
     setAddPress(false)
   }
 
+  //hide keyboard when user click outside
+  const handleContainerPress = () => {
+    Keyboard.dismiss();
+  };
+  
+  
   // กำหนด onPress ให้ปุ่ม + บน Header
   useEffect(() => {
     navigation.setOptions({
